@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.so
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Proyectos musicales (datos de producción personales)
+projects/
+
+# Claude Code interno
+.claude/
+CLAUDE.internal.md
+CLAUDE.local.md
+
+# macOS
+.DS_Store
+*.DS_Store
+
+# Editores
+.vscode/
+.idea/

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ableton": {
+      "command": "python3",
+      "args": ["/Users/TU_USUARIO/ableton-mcp/src/server.py"],
+      "env": {}
+    }
+  }
+}
