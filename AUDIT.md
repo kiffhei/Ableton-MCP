@@ -95,3 +95,25 @@ Como portafolio: el blocker principal es que no existe en GitHub. Sin repo, ning
 "Construí un MCP server que controla Ableton Live con lenguaje natural — crea progresiones en cualquier escala, maneja el estado de proyectos, y puede clonar la estructura musical de canciones reales vía Spotify."
 
 Ese párrafo, con el código visible en GitHub, posiciona a Brian como alguien que entiende MCP (tecnología de 2025), producción musical, y automatización real. Para clientes de consultoría en n8n/automatización, es un diferenciador único.
+
+---
+
+## Addendum — 2026-06-25
+
+**Bug de endpoints OSC inexistentes: creció de 3 a 5 tools.**
+
+La auditoría original (2026-06-17) no había detectado que `load_instrument`, `load_plugin` y `load_sample` llaman a endpoints OSC que **no existen** en AbletonOSC estándar (`ideoforms/AbletonOSC`): `/live/track/load_device`, `/live/browser/scan`, `/live/track/load_sample`. Confirmado contra el código fuente de AbletonOSC y documentado externamente por otro proyecto MCP de Ableton, que señala que cargar dispositivos desde el Browser de Live requiere extender el Remote Script con un endpoint custom — no es parte de la API estándar.
+
+Una sesión posterior (no commiteada hasta ahora) agregó `plugin_registry.py` y 18 tools nuevas (track/clip/scene control), pero **dos de las tools nuevas heredan el mismo bug**:
+
+| Endpoint inexistente | Tools afectadas (5 total) |
+|---|---|
+| `/live/browser/scan` | `scan_plugins` (original), `build_plugin_registry` (nueva) |
+| `/live/track/load_device` | `load_instrument`, `load_plugin` (originales), `load_plugin_by_name` (nueva) |
+| `/live/track/load_sample` | `load_sample` (original) |
+
+`build_plugin_registry` es la más grave de las dos nuevas: construye un registro completo de plugins instalados llamando a un endpoint que no existe, lo que significa que la funcionalidad central de "Plugins del usuario (preferidos)" documentada en `CLAUDE.md` probablemente no funciona contra una instalación estándar de AbletonOSC.
+
+**Fix real (sin hacer todavía):** fork de AbletonOSC con un módulo `browser.py` que envuelva `Application.get_browser()` + `load_item()` de la Live Object Model — patrón ya usado en `track.py`/`device.py` del repo oficial.
+
+**Acción recomendada:** abrir un GitHub Issue trackeando esto (`gh issue create`) en vez de dejarlo solo como nota en este archivo, ahora que el repo es público.
