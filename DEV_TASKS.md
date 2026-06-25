@@ -205,6 +205,161 @@ Comando: `pytest tests/ -v`
 
 ---
 
+## DEV7 · Estructura del bridge Node for Max (`m4l-bridge/`) `[M]`
+
+Crear carpeta nueva en la raíz del repo:
+
+```
+m4l-bridge/
+├── package.json
+├── bridge-simple.js       (un proceso `claude` por mensaje — para validar el flujo)
+├── bridge-persistent.js   (un solo proceso `claude` corriendo toda la sesión — para uso en vivo)
+└── README.md              (cuál usar y cuándo)
+```
+
+`package.json`:
+```json
+{
+  "name": "ableton-mcp-m4l-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bridge Node for Max: conecta un device de Max for Live con Claude Code (MCP server 'ableton')",
+  "dependencies": {
+    "max-api": "*"
+  }
+}
+```
+Nota: `max-api` viene incluido con la instalación de Max — esta entrada es solo para que el editor no marque el `require` como error.
+
+`bridge-simple.js`:
+```javascript
+const { spawn } = require("child_process");
+const Max = require("max-api");
+
+let sessionId = null;
+const CLAUDE_BIN = "CLAUDE_BIN_PLACEHOLDER"; // ver DEV9 — reemplazar con `which claude`
+const REPO_PATH = "/Users/TU_USUARIO/proyectos/ableton-mcp";
+
+Max.addHandler("ask", (trackIndex, ...promptWords) => {
+  const args = [
+    "-p", promptWords.join(" "),
+    "--append-system-prompt",
+    `Estás controlando el track ${trackIndex} de Ableton Live vía el MCP server "ableton". Aplica las acciones a ese track_index salvo que el usuario indique otro explícitamente.`,
+    "--output-format", "json",
+    "--allowedTools", "mcp__ableton__*",
+  ];
+  if (sessionId) args.push("--resume", sessionId);
+
+  const proc = spawn(CLAUDE_BIN, args, { cwd: REPO_PATH });
+  let out = "";
+  proc.stdout.on("data", d => out += d);
+  proc.stderr.on("data", d => Max.post("stderr: " + d));
+  proc.on("close", () => {
+    try {
+      const parsed = JSON.parse(out);
+      sessionId = parsed.session_id;
+      Max.outlet("response", parsed.result);
+    } catch {
+      Max.outlet("error", "respuesta no parseable");
+    }
+  });
+});
+```
+
+`bridge-persistent.js`:
+```javascript
+const { spawn } = require("child_process");
+const readline = require("readline");
+const Max = require("max-api");
+
+const CLAUDE_BIN = "CLAUDE_BIN_PLACEHOLDER"; // ver DEV9
+const REPO_PATH = "/Users/TU_USUARIO/proyectos/ableton-mcp";
+
+const claude = spawn(CLAUDE_BIN, [
+  "-p", "--input-format", "stream-json", "--output-format", "stream-json",
+  "--verbose", "--allowedTools", "mcp__ableton__*",
+], { cwd: REPO_PATH });
+
+readline.createInterface({ input: claude.stdout }).on("line", (line) => {
+  try {
+    const msg = JSON.parse(line);
+    if (msg.type === "result") Max.outlet("response", msg.result);
+  } catch {}
+});
+
+claude.stderr.on("data", d => Max.post("stderr: " + d));
+
+let currentTrack = null;
+Max.addHandler("track", (t) => { currentTrack = t; });
+Max.addHandler("ask", (...words) => {
+  const text = `[track ${currentTrack}] ${words.join(" ")}`;
+  const userMsg = { type: "user", message: { role: "user", content: [{ type: "text", text }] } };
+  claude.stdin.write(JSON.stringify(userMsg) + "\n");
+});
+```
+
+**IMPORTANTE — no confundir con DEV5:** este bridge NO toca `server.py`. Claude Code habla con el MCP server "ableton" vía stdio exactamente igual que en una sesión normal de terminal; el bridge solo lanza el binario `claude`.
+
+---
+
+## DEV8 · Verificar que el MCP server "ableton" responde en modo headless `[XS]` — HACER ANTES DE DEV7
+
+```bash
+# Confirmar que el servidor está registrado y Claude Code lo ve
+claude mcp list
+
+# Probar exactamente la misma invocación que hará el bridge
+cd ~/proyectos/ableton-mcp
+claude -p "Lista las herramientas disponibles del servidor ableton" \
+  --allowedTools "mcp__ableton__*" \
+  --output-format json
+```
+Verificar en el JSON de salida: `is_error: false` y que `result` menciona tools reales (`add_chord_progression`, `set_tempo`, etc.). Si `claude mcp list` no muestra "ableton" conectado, DETENERSE aquí — nada de lo siguiente funcionará sin esto.
+
+---
+
+## DEV9 · Resolver ruta absoluta del binario `claude` `[XS]`
+
+```bash
+which claude
+```
+Max for Live (lanzado desde Finder/Dock) no hereda el `$PATH` de tu shell — `node.script` con `"claude"` a secas falla con `ENOENT`. Reemplazar `CLAUDE_BIN_PLACEHOLDER` en ambos bridges con la ruta literal que devuelve este comando.
+
+---
+
+## DEV10 · Test E2E del bridge simple desde terminal, sin Max `[S]`
+
+Antes de tocar Max, validar el bridge en aislamiento:
+
+```javascript
+// m4l-bridge/test-bridge.js
+const { spawn } = require("child_process");
+const CLAUDE_BIN = "CLAUDE_BIN_PLACEHOLDER"; // mismo valor que DEV9
+
+const proc = spawn(CLAUDE_BIN, [
+  "-p", "Crea una progresión de deep house en Dm en el track 0",
+  "--append-system-prompt", "Estás controlando el track 0 de Ableton Live vía el MCP server \"ableton\".",
+  "--output-format", "json",
+  "--allowedTools", "mcp__ableton__*",
+], { cwd: process.cwd() });
+
+let out = "";
+proc.stdout.on("data", d => out += d);
+proc.on("close", () => console.log(JSON.parse(out)));
+```
+
+Correr con Ableton Live abierto y AbletonOSC activo: `node m4l-bridge/test-bridge.js`
+**Verificación:** el track 0 debe mostrar el clip con la progresión generada, y la consola debe imprimir JSON con `is_error: false`.
+
+---
+
+## DEV11 · Migrar a `bridge-persistent.js` `[M]` — SOLO si DEV10 pasa
+
+No migrar si el test E2E del bridge simple falla — depurar ahí primero, no en el patch de Max.
+Una vez validado: en el patch de Max (ver DESIGN_TASKS.md DT4), el objeto `node.script` debe apuntar a `m4l-bridge/bridge-persistent.js` en vez de `bridge-simple.js`.
+
+---
+
 ## Orden de ejecución
 
 1. **DEV1** → 5 min
@@ -213,3 +368,11 @@ Comando: `pytest tests/ -v`
 4. **DEV2** → 10 min (git init + GitHub)
 5. **DEV5** → 60 min (refactor en módulos — sesión separada)
 6. **DEV6** → 30 min (tests — requiere DEV5)
+
+**Sesión independiente — M4L Channel Strip (ver PROMPT_KICKOFF.md KICKOFF C):**
+
+7. **DEV8** → 5 min (verificar MCP headless — hacer primero, bloquea todo lo demás)
+8. **DEV9** → 2 min (ruta del binario claude)
+9. **DEV7** → 30 min (crear los dos bridges)
+10. **DEV10** → 15 min (test E2E sin Max)
+11. **DEV11** → 10 min (migrar a persistente, solo si DEV10 pasa)

@@ -79,8 +79,64 @@ Commit por fase: primero refactor (sin tests), verificar que sigue compilando, l
 
 ---
 
+## KICKOFF C — Sesión Claude Code (bridge Node for Max ↔ Claude Code) `[60-90 min]`
+
+```
+Proyecto: Ableton Live MCP Server — extensión "M4L Channel Strip".
+Ruta local: ~/proyectos/ableton-mcp/
+Objetivo de esta sesión: crear el bridge en Node for Max que permite invocar Claude Code
+(con el MCP server "ableton" ya configurado) desde un device de Max for Live colocado
+en un canal de Ableton, sin tocar server.py.
+
+Lee CLAUDE.md y AUDIT.md antes de tocar cualquier archivo.
+AUDIT.md ya documenta que load_instrument/load_plugin/scan_plugins/load_sample llaman
+a endpoints OSC inexistentes en AbletonOSC estándar — NO es parte de esta sesión
+arreglarlo. Si una prueba E2E falla específicamente en una de esas 4 tools, es un
+problema conocido y separado, no un bug del bridge.
+
+TAREAS (en orden estricto — DEV8 bloquea todo lo demás, va primero):
+
+1. [DEV8] Verificar que el MCP server "ableton" responde en modo headless
+   Correr los dos comandos exactos de DEV_TASKS.md DEV8.
+   Si `claude mcp list` no muestra "ableton" conectado, DETENTE y reporta el error
+   tal cual — no continuar con el resto de la sesión sin esto resuelto.
+
+2. [DEV9] Resolver la ruta absoluta del binario claude
+   `which claude` → guardar el valor, se usa en el siguiente paso.
+
+3. [DEV7] Crear m4l-bridge/ con bridge-simple.js, bridge-persistent.js y package.json
+   Ver DEV_TASKS.md DEV7 para el contenido exacto.
+   Reemplazar CLAUDE_BIN_PLACEHOLDER con la ruta de DEV9 en ambos archivos.
+   Reemplazar TU_USUARIO con el usuario real (`whoami`) en REPO_PATH.
+
+4. [DEV10] Test E2E del bridge simple, sin Max
+   Crear m4l-bridge/test-bridge.js (ver DEV_TASKS.md DEV10).
+   PREGUNTAR a Brian si Ableton Live está abierto con AbletonOSC activo antes de correrlo.
+   Correr: node m4l-bridge/test-bridge.js
+   Verificación: el track 0 muestra el clip generado, JSON de salida con is_error: false.
+
+5. [DEV11] Migrar a bridge-persistent.js — SOLO si el paso 4 pasó sin errores
+   Si DEV10 falló, quedarse ahí y depurar; no avanzar a este paso.
+
+NO HACER en esta sesión:
+- NO tocar server.py — el bridge no lo necesita, habla con él vía Claude Code/stdio.
+- NO intentar crear o editar el archivo .amxd del patch de Max — eso es DT4 en
+  DESIGN_TASKS.md, una tarea manual de Brian en la GUI de Max, fuera de tu alcance.
+- NO usar --dangerously-skip-permissions en ningún comando — usar siempre
+  --allowedTools "mcp__ableton__*", que ya alcanza para esta sesión.
+
+Verificación final antes de cerrar la sesión:
+- node m4l-bridge/test-bridge.js corre sin error, JSON con is_error: false
+- git status: m4l-bridge/ debe aparecer para commitear; nada de projects/ ni .claude/
+- Commit: "feat: bridge Node for Max para invocar Claude Code (MCP ableton) desde M4L"
+```
+
+---
+
 ## Nota sobre el orden de sesiones
 
 **Hacer primero:** KICKOFF A (git + README). El proyecto no existe públicamente hasta hacer este paso.
 **Después:** KICKOFF B (refactor) — una vez el repo existe y es visible.
 **Simultáneo con KICKOFF A:** grabar el demo GIF (DESIGN_TASKS.md DT1) si Ableton está abierto.
+**Independiente, cuando quieras:** KICKOFF C (bridge M4L) — no depende de B, pero sí asume que A ya está hecho (necesita un repo real para el commit).
+**Después de KICKOFF C, manual (no es una sesión de Claude Code):** DESIGN_TASKS.md DT4 — construir el patch `.amxd` en la GUI de Max apuntando al bridge ya creado y probado.

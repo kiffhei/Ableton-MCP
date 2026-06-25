@@ -61,3 +61,20 @@ Una vez el repo esté en GitHub con CI básico:
 ```
 
 Los badges de tecnología no requieren CI — son estáticos y se agregan manualmente.
+
+---
+
+## DT4 · Patch de Max for Live — "Claude Channel Strip" `[ALTA — manual, NO delegable a Claude Code]`
+
+**Por qué es manual:** Claude Code edita archivos y corre comandos, pero no tiene control de la interfaz gráfica de Max — no puede arrastrar objetos ni conectar cables en el patcher. El `.amxd` se construye a mano en la GUI de Max (~10-15 min), mientras que todo el código (los bridges de DEV7) sí lo hace Claude Code.
+
+**Pasos:**
+1. En Live: arrastra un **Max Audio Effect** vacío a cualquier canal → clic en el ícono de lápiz para abrir el editor.
+2. Agregar objeto `live.path` con mensaje `path this_device canonical_parent` disparado por `loadbang` → resuelve el track donde vive el device.
+3. Conectar la salida a un `live.object` con mensaje `path`, y pasar el resultado por un `regexp` (patrón `tracks (\d+)`) para extraer el número de track.
+4. Agregar `live.text` o `textedit` para escribir el prompt.
+5. Agregar `node.script` apuntando a `m4l-bridge/bridge-simple.js` (cambiar a `bridge-persistent.js` después de DEV11). Conectar: track_index + texto → mensaje `ask <track_index> <prompt>` al inlet de `node.script`.
+6. Conectar la salida `response` del `node.script` a un `comment` o `live.text` en modo display.
+7. Guardar como `Claude Channel Strip.amxd` en `~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect/`.
+
+**Verificación:** arrastra el device a un track distinto al original — el track_index mostrado debe actualizarse solo, sin reconfigurar nada.
