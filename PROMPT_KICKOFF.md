@@ -89,10 +89,13 @@ Objetivo de esta sesión: crear el bridge en Node for Max que permite invocar Cl
 en un canal de Ableton, sin tocar server.py.
 
 Lee CLAUDE.md y AUDIT.md antes de tocar cualquier archivo.
-AUDIT.md ya documenta que load_instrument/load_plugin/scan_plugins/load_sample llaman
-a endpoints OSC inexistentes en AbletonOSC estándar — NO es parte de esta sesión
-arreglarlo. Si una prueba E2E falla específicamente en una de esas 4 tools, es un
-problema conocido y separado, no un bug del bridge.
+AUDIT.md (sección "Addendum — 2026-06-25") documenta que 6 tools llaman a
+endpoints OSC inexistentes en AbletonOSC estándar: load_instrument,
+load_plugin, scan_plugins, load_sample, build_plugin_registry, load_plugin_by_name.
+Ya hay un GitHub Issue abierto trackeando esto (el conteo del issue dice "5" por
+un error mío — corregir o ignorar la discrepancia, no es parte de esta sesión).
+NO es parte de esta sesión arreglar el bug. Si una prueba E2E falla específicamente
+en una de esas 6 tools, es el bug conocido, no un problema del bridge.
 
 TAREAS (en orden estricto — DEV8 bloquea todo lo demás, va primero):
 

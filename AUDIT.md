@@ -100,13 +100,13 @@ Ese párrafo, con el código visible en GitHub, posiciona a Brian como alguien q
 
 ## Addendum — 2026-06-25
 
-**Bug de endpoints OSC inexistentes: creció de 3 a 5 tools.**
+**Bug de endpoints OSC inexistentes: creció de 4 a 6 tools.**
 
-La auditoría original (2026-06-17) no había detectado que `load_instrument`, `load_plugin` y `load_sample` llaman a endpoints OSC que **no existen** en AbletonOSC estándar (`ideoforms/AbletonOSC`): `/live/track/load_device`, `/live/browser/scan`, `/live/track/load_sample`. Confirmado contra el código fuente de AbletonOSC y documentado externamente por otro proyecto MCP de Ableton, que señala que cargar dispositivos desde el Browser de Live requiere extender el Remote Script con un endpoint custom — no es parte de la API estándar.
+La auditoría original (2026-06-17) ya había detectado que `load_instrument`, `load_plugin`, `scan_plugins` y `load_sample` llaman a endpoints OSC que **no existen** en AbletonOSC estándar (`ideoforms/AbletonOSC`): `/live/track/load_device`, `/live/browser/scan`, `/live/track/load_sample`. Confirmado contra el código fuente de AbletonOSC y documentado externamente por otro proyecto MCP de Ableton, que señala que cargar dispositivos desde el Browser de Live requiere extender el Remote Script con un endpoint custom — no es parte de la API estándar.
 
 Una sesión posterior (no commiteada hasta ahora) agregó `plugin_registry.py` y 18 tools nuevas (track/clip/scene control), pero **dos de las tools nuevas heredan el mismo bug**:
 
-| Endpoint inexistente | Tools afectadas (5 total) |
+| Endpoint inexistente | Tools afectadas (6 total) |
 |---|---|
 | `/live/browser/scan` | `scan_plugins` (original), `build_plugin_registry` (nueva) |
 | `/live/track/load_device` | `load_instrument`, `load_plugin` (originales), `load_plugin_by_name` (nueva) |
