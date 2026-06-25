@@ -4,251 +4,39 @@ Conecta Claude con Ableton Live via AbletonOSC
 """
 
 import asyncio
-import json
 import logging
-import os
-import re
-from datetime import date
-from pathlib import Path
-from typing import Any
-from pythonosc import udp_client, dispatcher, osc_server
-import threading
 import time
+import urllib.parse
+from datetime import date
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp import types
 
+from music_theory import (
+    build_progression, build_chord, note_name_to_midi,
+    GENRE_PATTERNS, SCALES,
+)
+from osc_client import (
+    send_osc, start_osc_listener, init_osc_client,
+    osc_lock, osc_responses,
+)
+from project_manager import (
+    PROJECTS_DIR, _slug, _project_path,
+    _load_project_file, _save_project_file,
+    get_active_project, set_active_project,
+)
+from plugin_registry import (
+    add_plugins_bulk, find_plugin_uri, search_plugins,
+    list_registry_summary, mark_as_scanned, get_last_scan,
+    _load_registry,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ableton-mcp")
 
-# ── Proyectos ────────────────────────────────────────────────
-PROJECTS_DIR = Path(__file__).parent.parent / "projects"
-PROJECTS_DIR.mkdir(exist_ok=True)
-_active_project: dict | None = None
-
-def _slug(name: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-
-def _project_path(slug: str) -> Path:
-    return PROJECTS_DIR / slug
-
-def _load_project_file(slug: str) -> dict | None:
-    p = _project_path(slug) / "project.json"
-    if p.exists():
-        return json.loads(p.read_text())
-    return None
-
-def _save_project_file(data: dict) -> None:
-    slug = data["slug"]
-    path = _project_path(slug)
-    path.mkdir(exist_ok=True)
-    (path / "project.json").write_text(json.dumps(data, indent=2, ensure_ascii=False))
-    logger.info(f"Proyecto guardado: {slug}")
-
-# ── OSC Config ──────────────────────────────────────────────
-ABLETON_HOST = "127.0.0.1"
-ABLETON_SEND_PORT = 11000   # Puerto donde Ableton escucha
-ABLETON_RECV_PORT = 11001   # Puerto donde recibimos respuestas
-
 # ── Servidor MCP ────────────────────────────────────────────
 app = Server("ableton-mcp")
-
-# ── Cliente OSC global ──────────────────────────────────────
-osc_client: udp_client.SimpleUDPClient | None = None
-osc_responses: dict[str, Any] = {}
-osc_lock = threading.Lock()
-
-
-def init_osc_client():
-    global osc_client
-    osc_client = udp_client.SimpleUDPClient(ABLETON_HOST, ABLETON_SEND_PORT)
-    logger.info(f"OSC client → {ABLETON_HOST}:{ABLETON_SEND_PORT}")
-
-
-def send_osc(address: str, *args):
-    """Envía un mensaje OSC a Ableton."""
-    if osc_client is None:
-        init_osc_client()
-    logger.info(f"OSC → {address} {args}")
-    osc_client.send_message(address, list(args))
-
-
-def osc_response_handler(address, *args):
-    with osc_lock:
-        osc_responses[address] = args
-    logger.info(f"OSC ← {address}: {args}")
-
-
-def start_osc_listener():
-    """Inicia listener para respuestas de Ableton."""
-    disp = dispatcher.Dispatcher()
-    disp.set_default_handler(osc_response_handler)
-    server = osc_server.ThreadingOSCUDPServer(
-        (ABLETON_HOST, ABLETON_RECV_PORT), disp
-    )
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    logger.info(f"OSC listener en puerto {ABLETON_RECV_PORT}")
-
-
-# ── Helpers musicales ────────────────────────────────────────
-
-# Notas cromáticas
-CHROMATIC = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-
-NOTE_TO_MIDI = {note: i for i, note in enumerate(CHROMATIC)}
-NOTE_TO_MIDI.update({"Db": 1, "Eb": 3, "Gb": 6, "Ab": 8, "Bb": 10})
-
-# Escalas definidas por intervalos en semitonos desde la raíz
-SCALES = {
-    "major":            [0, 2, 4, 5, 7, 9, 11],
-    "minor":            [0, 2, 3, 5, 7, 8, 10],
-    "harmonic_minor":   [0, 2, 3, 5, 7, 8, 11],
-    "melodic_minor":    [0, 2, 3, 5, 7, 9, 11],
-    "dorian":           [0, 2, 3, 5, 7, 9, 10],
-    "phrygian":         [0, 1, 3, 5, 7, 8, 10],
-    "lydian":           [0, 2, 4, 6, 7, 9, 11],
-    "mixolydian":       [0, 2, 4, 5, 7, 9, 10],
-    "locrian":          [0, 1, 3, 5, 6, 8, 10],
-    "pentatonic_minor": [0, 3, 5, 7, 10],
-    "pentatonic_major": [0, 2, 4, 7, 9],
-    "blues":            [0, 3, 5, 6, 7, 10],
-    "whole_tone":       [0, 2, 4, 6, 8, 10],
-    "diminished":       [0, 2, 3, 5, 6, 8, 9, 11],
-    "phrygian_dominant": [0, 1, 4, 5, 7, 8, 10],
-    "hungarian_minor":  [0, 2, 3, 6, 7, 8, 11],
-    "double_harmonic":  [0, 1, 4, 5, 7, 8, 11],
-}
-
-# Tipos de acorde por intervalos en semitonos
-CHORD_TYPES = {
-    "maj":      [0, 4, 7],
-    "min":      [0, 3, 7],
-    "maj7":     [0, 4, 7, 11],
-    "min7":     [0, 3, 7, 10],
-    "dom7":     [0, 4, 7, 10],
-    "maj9":     [0, 4, 7, 11, 14],
-    "min9":     [0, 3, 7, 10, 14],
-    "add9":     [0, 4, 7, 14],
-    "dim":      [0, 3, 6],
-    "dim7":     [0, 3, 6, 9],
-    "aug":      [0, 4, 8],
-    "sus2":     [0, 2, 7],
-    "sus4":     [0, 5, 7],
-    "min11":    [0, 3, 7, 10, 14, 17],
-    "maj7s11":  [0, 4, 7, 11, 18],
-    "dom9":     [0, 4, 7, 10, 14],
-    "half_dim": [0, 3, 6, 10],
-}
-
-# Progresiones por género definidas como grados de escala (0-based) y tipo de acorde.
-# Formato: [ (grado, tipo_acorde), ... ]
-GENRE_PATTERNS = {
-    # ── HOUSE ──────────────────────────────────────────────
-    "house":            [(0, "min"), (5, "maj"), (2, "maj"), (4, "maj")],
-    "deep_house":       [(0, "min7"), (3, "min7"), (4, "dom7"), (2, "maj7")],
-    "afro_house":       [(0, "min7"), (4, "min7"), (5, "maj7"), (6, "dom7")],
-    "tech_house":       [(0, "min7"), (6, "maj"), (0, "min7"), (4, "dom7")],
-    "garage_house":     [(0, "min7"), (5, "maj7"), (6, "dom7"), (4, "min7")],
-
-    # ── TECHNO ─────────────────────────────────────────────
-    "techno":           [(0, "min"), (4, "min"), (3, "min"), (0, "min")],
-    "detroit_techno":   [(0, "min7"), (3, "min7"), (6, "maj7"), (0, "min7")],
-    "industrial_techno": [(0, "min"), (6, "dim"), (0, "min"), (5, "min")],
-    "minimal_techno":   [(0, "min"), (0, "min"), (6, "maj"), (0, "min")],
-    "melodic_techno":   [(0, "min7"), (5, "maj7"), (2, "maj7"), (6, "dom7")],
-
-    # ── TRANCE ─────────────────────────────────────────────
-    "trance":           [(0, "min"), (5, "maj"), (2, "maj"), (6, "maj")],
-    "progressive_trance": [(0, "min7"), (5, "maj7"), (2, "maj7"), (4, "min7")],
-    "psytrance":        [(0, "min"), (0, "min"), (6, "maj"), (5, "maj")],
-    "uplifting_trance": [(0, "min"), (5, "maj"), (3, "min"), (6, "maj")],
-
-    # ── DRUM AND BASS ───────────────────────────────────────
-    "drum_and_bass":    [(0, "min7"), (6, "maj7"), (5, "maj7"), (4, "dom7")],
-    "liquid_dnb":       [(0, "maj7"), (5, "maj7"), (3, "min7"), (6, "dom7")],
-    "neurofunk":        [(0, "min7"), (6, "dim7"), (5, "min7"), (0, "min7")],
-    "jungle":           [(0, "min"), (6, "maj"), (5, "maj"), (4, "dom7")],
-    "halftime":         [(0, "min7"), (5, "maj7"), (3, "min7"), (4, "dom7")],
-
-    # ── HIP HOP ────────────────────────────────────────────
-    "hip_hop":          [(0, "min7"), (6, "maj7"), (5, "maj7"), (4, "dom7")],
-    "lo_fi":            [(0, "maj7"), (5, "maj7"), (1, "min7"), (4, "dom7")],
-    "boom_bap":         [(0, "min7"), (3, "min7"), (4, "dom7"), (0, "min7")],
-    "trap":             [(0, "min"), (5, "maj"), (6, "maj"), (0, "min")],
-    "drill":            [(0, "min"), (6, "dim"), (6, "maj"), (0, "min")],
-    "phonk":            [(0, "min"), (5, "maj"), (0, "min"), (4, "dom7")],
-    "cloud_rap":        [(0, "maj7"), (5, "maj7"), (2, "maj7"), (4, "min7")],
-
-    # ── R&B / SOUL / FUNK ───────────────────────────────────
-    "rnb":              [(0, "min7"), (3, "min7"), (6, "dom7"), (2, "maj7")],
-    "neo_soul":         [(0, "min9"), (3, "min9"), (6, "dom7"), (2, "maj9")],
-    "funk":             [(0, "min7"), (3, "dom7"), (0, "min7"), (4, "dom7")],
-    "soul":             [(0, "min7"), (5, "maj7"), (3, "min7"), (4, "dom7")],
-    "gospel":           [(0, "maj7"), (3, "maj7"), (4, "dom7"), (0, "maj7")],
-
-    # ── REGGAE / DUB ───────────────────────────────────────
-    "reggae":           [(0, "min7"), (3, "min7"), (4, "dom7"), (0, "min7")],
-    "dancehall":        [(0, "min"), (5, "maj"), (6, "maj"), (4, "dom7")],
-    "dub":              [(0, "min7"), (6, "maj7"), (0, "min7"), (4, "dom7")],
-    "roots_reggae":     [(0, "min7"), (3, "min7"), (4, "dom7"), (5, "maj7")],
-
-    # ── JAZZ ───────────────────────────────────────────────
-    "jazz":             [(1, "min7"), (4, "dom7"), (0, "maj7"), (3, "maj7")],
-    "jazz_fusion":      [(1, "min9"), (4, "dom7"), (0, "maj9"), (3, "maj7")],
-    "bossa_nova":       [(1, "min7"), (4, "dom7"), (0, "maj7"), (4, "dom7")],
-    "bebop":            [(1, "min7"), (4, "dom7"), (0, "maj7"), (5, "dom7")],
-    "modal_jazz":       [(0, "min7"), (0, "min7"), (1, "min7"), (0, "min7")],
-
-    # ── AMBIENT / ELECTRÓNICA ──────────────────────────────
-    "ambient":          [(0, "maj7"), (5, "maj7"), (2, "maj7"), (6, "maj7")],
-    "dark_ambient":     [(0, "min"), (6, "dim"), (0, "min"), (6, "dim")],
-    "idm":              [(0, "min7"), (5, "maj7"), (6, "min7"), (6, "dom7")],
-    "chillout":         [(0, "min7"), (5, "maj7"), (2, "maj7"), (4, "min7")],
-    "downtempo":        [(0, "min7"), (3, "min7"), (6, "dom7"), (5, "maj7")],
-
-    # ── SYNTHWAVE / ELECTRO ─────────────────────────────────
-    "synthwave":        [(0, "min"), (5, "maj"), (2, "maj"), (6, "maj")],
-    "darksynth":        [(0, "min"), (5, "min"), (6, "maj"), (0, "min")],
-    "electro":          [(0, "min7"), (6, "maj"), (5, "maj"), (4, "dom7")],
-    "future_bass":      [(0, "maj7"), (5, "maj7"), (2, "maj7"), (6, "dom7")],
-    "dubstep":          [(0, "min"), (5, "maj"), (6, "maj"), (4, "dom7")],
-    "riddim":           [(0, "min"), (0, "min"), (6, "maj"), (0, "min")],
-    "future_garage":    [(0, "min7"), (5, "maj7"), (3, "min7"), (4, "dom7")],
-
-    # ── POP ────────────────────────────────────────────────
-    "pop":              [(0, "maj"), (4, "maj"), (5, "min"), (3, "maj")],
-    "indie_pop":        [(5, "min7"), (3, "maj7"), (0, "maj"), (4, "maj")],
-    "dream_pop":        [(0, "maj7"), (5, "maj7"), (2, "maj7"), (4, "min7")],
-    "shoegaze":         [(0, "min"), (5, "maj"), (2, "maj"), (6, "maj")],
-    "hyperpop":         [(0, "maj7"), (3, "maj7"), (5, "min7"), (4, "dom7")],
-
-    # ── AFROBEATS / GLOBAL ──────────────────────────────────
-    "afrobeats":        [(0, "min7"), (5, "maj7"), (6, "dom7"), (4, "min7")],
-    "afrobeat":         [(0, "min7"), (3, "dom7"), (0, "min7"), (6, "dom7")],
-    "amapiano":         [(0, "min7"), (3, "min7"), (6, "dom7"), (2, "maj7")],
-    "baile_funk":       [(0, "min"), (6, "maj"), (5, "maj"), (0, "min")],
-    "cumbia":           [(0, "min"), (3, "min"), (4, "dom7"), (0, "min")],
-    "salsa":            [(0, "min7"), (3, "min7"), (4, "dom7"), (0, "min7")],
-    "dembow":           [(0, "min"), (5, "maj"), (6, "maj"), (4, "dom7")],
-    "reggaeton":        [(0, "min"), (5, "maj"), (6, "maj"), (4, "dom7")],
-
-    # ── ROCK / METAL ───────────────────────────────────────
-    "rock":             [(0, "min"), (6, "maj"), (5, "maj"), (4, "dom7")],
-    "indie_rock":       [(5, "min"), (3, "maj"), (0, "maj"), (4, "maj")],
-    "metal":            [(0, "min"), (6, "dim"), (5, "min"), (0, "min")],
-    "doom_metal":       [(0, "min"), (5, "min"), (6, "min"), (0, "min")],
-    "post_rock":        [(0, "maj7"), (5, "maj7"), (2, "maj7"), (4, "min7")],
-    "grunge":           [(0, "min"), (6, "maj"), (5, "maj"), (3, "maj")],
-
-    # ── CINEMATIC ──────────────────────────────────────────
-    "cinematic":        [(0, "min"), (5, "maj"), (2, "maj"), (6, "maj")],
-    "orchestral":       [(0, "min"), (3, "min"), (4, "dom7"), (0, "min")],
-    "neoclassical":     [(0, "min7"), (5, "maj7"), (2, "maj7"), (4, "dom7")],
-    "epic":             [(0, "min"), (5, "maj"), (3, "min"), (6, "maj")],
-    "horror":           [(0, "min"), (6, "dim7"), (5, "min"), (4, "dom7")],
-}
 
 # ── Instrumentos nativos de Ableton ─────────────────────────
 
@@ -330,76 +118,6 @@ def _parse_browser_items(raw: tuple) -> list[dict]:
                 "folder":   False,
             })
     return items
-
-
-def note_name_to_midi(note: str, octave: int) -> int:
-    """Convierte nombre de nota + octava a número MIDI absoluto."""
-    note = note.strip()
-    base = NOTE_TO_MIDI.get(note)
-    if base is None:
-        base = 9  # fallback A
-    return base + (octave + 1) * 12
-
-
-def scale_degree_to_root(root_midi: int, scale: list[int], degree: int) -> int:
-    """Obtiene la nota raíz de un grado de la escala. degree es 0-based."""
-    degree = degree % len(scale)
-    return root_midi + scale[degree]
-
-
-def build_chord(root_midi: int, chord_type: str, velocity: int = 80, duration: float = 2.0) -> list[dict]:
-    """Construye las notas de un acorde desde su raíz MIDI."""
-    intervals = CHORD_TYPES.get(chord_type, CHORD_TYPES["min7"])
-    return [
-        {"pitch": root_midi + i, "velocity": velocity, "duration": duration}
-        for i in intervals
-    ]
-
-
-def build_progression(
-    style: str,
-    key: str,
-    scale_name: str = "minor",
-    octave: int = 3,
-    bars_per_chord: float = 2.0,
-    velocity: int = 80,
-) -> list[dict]:
-    """
-    Construye progresión MIDI desde cualquier tonalidad, escala y género.
-    Transpone matemáticamente los grados del género a la clave real.
-    """
-    style_key = style.lower().strip().replace(" ", "_").replace("-", "_")
-    pattern = GENRE_PATTERNS.get(style_key)
-    if pattern is None:
-        for k in GENRE_PATTERNS:
-            if style_key in k or k in style_key:
-                pattern = GENRE_PATTERNS[k]
-                break
-    if pattern is None:
-        pattern = GENRE_PATTERNS["deep_house"]
-
-    scale_key = scale_name.lower().strip().replace(" ", "_").replace("-", "_")
-    scale = SCALES.get(scale_key, SCALES["minor"])
-
-    root_midi = note_name_to_midi(key.rstrip("m"), octave)
-
-    all_notes = []
-    position = 0.0
-    beat_duration = bars_per_chord * 4  # beats por acorde en 4/4
-
-    for degree, chord_type in pattern:
-        chord_root = scale_degree_to_root(root_midi, scale, degree)
-        notes = build_chord(chord_root, chord_type, velocity, beat_duration)
-        for note in notes:
-            all_notes.append({
-                "pitch":    note["pitch"],
-                "velocity": note["velocity"],
-                "duration": note["duration"],
-                "position": position,
-            })
-        position += beat_duration
-
-    return all_notes
 
 
 # ── Herramientas MCP ─────────────────────────────────────────
@@ -771,12 +489,335 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["track_index", "sample_path"],
             },
         ),
+
+        # ── Plugin Registry ──────────────────────────────────────
+        types.Tool(
+            name="build_plugin_registry",
+            description=(
+                "Escanea el browser de Ableton y construye un registro persistente de todos los "
+                "plugins instalados (VST3, VST2, AU, Max for Live). "
+                "Guarda los resultados en registry/plugins.json para uso futuro. "
+                "IMPORTANTE: ejecuta esto la primera vez que uses el MCP, con Ableton abierto "
+                "y el browser visible (tecla B). El escaneo puede tardar 10-30 segundos. "
+                "Después de hacer build_plugin_registry puedes usar load_plugin_by_name con "
+                "nombres amigables como 'Maschine 2', 'Pigments', 'Reaktor 6', etc."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "categories": {
+                        "type": "array",
+                        "description": "Categorías específicas a escanear. Vacío = escanear todo.",
+                        "items": {"type": "string"},
+                        "default": [],
+                    },
+                    "force_rescan": {
+                        "type": "boolean",
+                        "description": "Forzar re-escaneo aunque ya exista un registry guardado.",
+                        "default": False,
+                    },
+                },
+            },
+        ),
+        types.Tool(
+            name="load_plugin_by_name",
+            description=(
+                "Carga un plugin en un track usando su nombre en lenguaje natural. "
+                "Requiere que build_plugin_registry se haya ejecutado antes. "
+                "Ejemplos: 'Maschine 2', 'Pigments', 'Reaktor 6', 'Orbit', 'Pro-Q 3', 'Serum'. "
+                "Si el nombre es ambiguo, devuelve una lista de coincidencias para elegir."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Índice del track donde cargar el plugin (0-based)",
+                    },
+                    "plugin_name": {
+                        "type": "string",
+                        "description": "Nombre del plugin. Ej: 'Maschine 2', 'Arturia Pigments', 'Reaktor 6', 'Orbit'",
+                    },
+                },
+                "required": ["track_index", "plugin_name"],
+            },
+        ),
+        types.Tool(
+            name="search_plugin_registry",
+            description=(
+                "Busca plugins en el registry local por nombre parcial. "
+                "Útil para verificar si un plugin está en el registry antes de cargarlo, "
+                "o para descubrir qué plugins están instalados. "
+                "Si el registry está vacío, ejecuta build_plugin_registry primero."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Texto a buscar. Ej: 'arturia', 'native instruments', 'fabfilter', 'output'",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Máximo de resultados a devolver",
+                    },
+                },
+                "required": ["query"],
+            },
+        ),
+
+        # ── Track Control ─────────────────────────────────────────
+        types.Tool(
+            name="set_track_volume",
+            description=(
+                "Ajusta el volumen de un track. "
+                "El valor 0.85 corresponde a 0 dB (volumen de unidad). "
+                "Rango: 0.0 (silencio) a 1.0 (máximo, +6 dB aprox)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer", "description": "Índice del track (0-based)"},
+                    "volume": {
+                        "type": "number",
+                        "description": "Volumen 0.0–1.0. 0.85 = 0 dB. 0.0 = silencio.",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                    },
+                },
+                "required": ["track_index", "volume"],
+            },
+        ),
+        types.Tool(
+            name="set_track_pan",
+            description="Ajusta el paneo de un track. -1.0 = izquierda completa, 0.0 = centro, 1.0 = derecha completa.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "pan": {
+                        "type": "number",
+                        "description": "Paneo: -1.0 (L) a 1.0 (R), 0.0 = centro",
+                        "minimum": -1.0,
+                        "maximum": 1.0,
+                    },
+                },
+                "required": ["track_index", "pan"],
+            },
+        ),
+        types.Tool(
+            name="set_track_mute",
+            description="Silencia o activa un track.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "muted": {
+                        "type": "boolean",
+                        "description": "true = silenciar, false = activar",
+                    },
+                },
+                "required": ["track_index", "muted"],
+            },
+        ),
+        types.Tool(
+            name="set_track_solo",
+            description="Activa o desactiva el solo de un track.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "solo": {
+                        "type": "boolean",
+                        "description": "true = activar solo, false = desactivar solo",
+                    },
+                },
+                "required": ["track_index", "solo"],
+            },
+        ),
+        types.Tool(
+            name="arm_track",
+            description="Arma o desarma un track para grabación. El track debe ser MIDI o audio.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "armed": {
+                        "type": "boolean",
+                        "description": "true = armar para grabación, false = desarmar",
+                    },
+                },
+                "required": ["track_index", "armed"],
+            },
+        ),
+        types.Tool(
+            name="set_track_name",
+            description="Renombra un track en Ableton.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "name": {"type": "string", "description": "Nuevo nombre del track"},
+                },
+                "required": ["track_index", "name"],
+            },
+        ),
+        types.Tool(
+            name="set_track_color",
+            description="Cambia el color de un track. Usa el entero RGB (ej: 16711680 = rojo, 65280 = verde, 255 = azul).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "color": {
+                        "type": "integer",
+                        "description": "Color RGB como entero. Ej: 16711680=rojo, 16776960=amarillo, 65280=verde, 255=azul, 16711935=magenta",
+                    },
+                },
+                "required": ["track_index", "color"],
+            },
+        ),
+        types.Tool(
+            name="get_track_info",
+            description=(
+                "Obtiene información completa de un track: nombre, volumen, pan, mute, solo, arm, "
+                "número de clips, y lista de devices. "
+                "Útil para ver el estado actual antes de hacer cambios."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer", "description": "Índice del track (0-based)"},
+                },
+                "required": ["track_index"],
+            },
+        ),
+        types.Tool(
+            name="set_track_send",
+            description=(
+                "Ajusta el nivel de envío de un track a un return track. "
+                "Ejemplo: set_track_send(track_index=0, send_index=0, value=0.7) envía el track 1 "
+                "al return A con 70% de nivel."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer", "description": "Track de origen"},
+                    "send_index": {
+                        "type": "integer",
+                        "description": "Índice del return (0=A, 1=B, 2=C, etc.)",
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "Nivel de envío 0.0–1.0",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                    },
+                },
+                "required": ["track_index", "send_index", "value"],
+            },
+        ),
+        types.Tool(
+            name="create_audio_track",
+            description="Crea un nuevo track de audio en Ableton Live.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Posición donde insertar el track (-1 = al final)",
+                        "default": -1,
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Nombre del track",
+                        "default": "Audio Track",
+                    },
+                },
+            },
+        ),
+
+        # ── Clip & Scene Control ──────────────────────────────────
+        types.Tool(
+            name="trigger_clip",
+            description=(
+                "Dispara (lanza) un clip en un slot específico de la Session View. "
+                "El clip empieza a reproducirse en el próximo tiempo cuantizado. "
+                "Si el slot está vacío, no hace nada."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer", "description": "Índice del track (0-based)"},
+                    "scene_index": {"type": "integer", "description": "Índice de la escena/fila (0-based)"},
+                },
+                "required": ["track_index", "scene_index"],
+            },
+        ),
+        types.Tool(
+            name="stop_clip",
+            description="Detiene un clip que está reproduciendo en un slot de la Session View.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {"type": "integer"},
+                    "scene_index": {"type": "integer"},
+                },
+                "required": ["track_index", "scene_index"],
+            },
+        ),
+        types.Tool(
+            name="trigger_scene",
+            description=(
+                "Dispara una escena completa (fila) en la Session View. "
+                "Lanza todos los clips de esa fila simultáneamente. "
+                "Equivale a hacer clic en el botón ► de una escena."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "scene_index": {"type": "integer", "description": "Índice de la escena/fila (0-based)"},
+                },
+                "required": ["scene_index"],
+            },
+        ),
+
+        # ── Ableton Session ───────────────────────────────────────
+        types.Tool(
+            name="set_time_signature",
+            description="Cambia el compás del proyecto. Ejemplo: 4/4, 3/4, 6/8.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "numerator": {
+                        "type": "integer",
+                        "description": "Numerador del compás (ej: 4 para 4/4, 3 para 3/4)",
+                        "minimum": 1,
+                        "maximum": 16,
+                    },
+                    "denominator": {
+                        "type": "integer",
+                        "description": "Denominador del compás (ej: 4 para /4, 8 para /8)",
+                        "enum": [1, 2, 4, 8, 16],
+                    },
+                },
+                "required": ["numerator", "denominator"],
+            },
+        ),
+        types.Tool(
+            name="get_ableton_version",
+            description=(
+                "Obtiene la versión de Ableton Live instalada y el estado general de la conexión OSC. "
+                "Útil para verificar que AbletonOSC está activo y para saber qué funciones están disponibles."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
     ]
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-    global _active_project
 
     if name == "set_tempo":
         bpm = arguments["bpm"]
@@ -799,9 +840,6 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         track_name = arguments.get("name", "MIDI Track")
         send_osc("/live/song/create_midi_track", idx)
         time.sleep(0.3)
-        # Renombrar track (AbletonOSC usa track_index para esto)
-        # Si es -1, asumimos que se creó al final — necesitamos el count real
-        # Por ahora lo asignamos al último track conocido
         return [types.TextContent(type="text", text=f"✅ Track MIDI '{track_name}' creado en posición {idx}")]
 
     elif name == "get_session_info":
@@ -823,11 +861,9 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         clip_name = arguments.get("clip_name", "MIDI Clip")
         clip_length = arguments.get("clip_length", 16.0)
 
-        # Crear clip vacío
         send_osc("/live/clip_slot/create_clip", track_idx, scene_idx, clip_length)
         time.sleep(0.4)
 
-        # Agregar notas: /live/clip/add/notes track scene [pitch pos dur vel muted ...]
         note_args = [track_idx, scene_idx]
         for n in notes:
             note_args += [
@@ -840,7 +876,6 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         send_osc("/live/clip/add/notes", *note_args)
         time.sleep(0.2)
 
-        # Nombrar clip
         send_osc("/live/clip/set/name", track_idx, scene_idx, clip_name)
 
         return [types.TextContent(
@@ -857,17 +892,14 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         velocity = arguments.get("velocity", 80)
         clip_name = arguments.get("clip_name", f"{key} {style} Chords")
         bars_per_chord = arguments.get("bars_per_chord", 2.0)
-
-        # Construir notas
         scale_name = arguments.get("scale", "minor")
+
         notes = build_progression(style, key, scale_name, octave, bars_per_chord, velocity)
         total_length = bars_per_chord * 4 * 4  # 4 acordes × bars × beats
 
-        # Crear clip
         send_osc("/live/clip_slot/create_clip", track_idx, scene_idx, float(total_length))
         time.sleep(0.4)
 
-        # Enviar notas
         note_args = [track_idx, scene_idx]
         for n in notes:
             note_args += [
@@ -880,10 +912,8 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         send_osc("/live/clip/add/notes", *note_args)
         time.sleep(0.2)
 
-        # Nombre
         send_osc("/live/clip/set/name", track_idx, scene_idx, clip_name)
 
-        # Resumen de los acordes generados
         style_key = style.lower().strip().replace(" ", "_").replace("-", "_")
         pattern = GENRE_PATTERNS.get(style_key, GENRE_PATTERNS["deep_house"])
         chord_summary = " → ".join([f"grado{d} {t}" for d, t in pattern])
@@ -996,8 +1026,8 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         time.sleep(0.3)
 
         with osc_lock:
-            num_raw    = osc_responses.get("/live/track/get/num_devices", (0,))
-            names_raw  = osc_responses.get("/live/track/get/devices/name", ())
+            num_raw     = osc_responses.get("/live/track/get/num_devices", (0,))
+            names_raw   = osc_responses.get("/live/track/get/devices/name", ())
             classes_raw = osc_responses.get("/live/track/get/devices/class_name", ())
 
         num_devices = int(num_raw[0]) if num_raw else 0
@@ -1052,7 +1082,6 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         if filter_text:
             items = [it for it in items if filter_text in it["name"].lower()]
 
-        # Actualizar cache con los items cargables
         for it in items:
             if it.get("loadable") and it.get("uri"):
                 key = _normalize(it["name"])
@@ -1095,11 +1124,9 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         )]
 
     elif name == "load_sample":
-        import urllib.parse
         track_idx   = arguments["track_index"]
         sample_path = arguments["sample_path"].strip()
 
-        # Construir URI file:// compatible con el browser de Ableton
         file_uri = "file://" + urllib.parse.quote(sample_path, safe="/:")
 
         send_osc("/live/view/set/selected_track", track_idx)
@@ -1129,7 +1156,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
         existing = _load_project_file(slug)
         if existing:
-            _active_project = existing
+            set_active_project(existing)
             return [types.TextContent(type="text", text=(
                 f"⚠️ Proyecto '{proj_name}' ya existe (slug: {slug}).\n"
                 f"Cargado como proyecto activo. Usa load_project para retomarlo "
@@ -1154,7 +1181,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             "notes": notes,
         }
         _save_project_file(data)
-        _active_project = data
+        set_active_project(data)
 
         send_osc("/live/song/set/tempo", float(bpm))
 
@@ -1190,7 +1217,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 f"❌ Proyecto '{proj_name}' no encontrado (slug: {slug}).\n"
                 f"Proyectos disponibles: {', '.join(projects) or 'ninguno'}"
             ))]
-        _active_project = data
+        set_active_project(data)
         prod = data.get("production", {})
         tracks = data.get("tracks", [])
         track_lines = "\n".join(
@@ -1207,25 +1234,24 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         ))]
 
     elif name == "save_project_state":
-        if _active_project is None:
+        active = get_active_project()
+        if active is None:
             return [types.TextContent(type="text", text=(
                 "❌ No hay proyecto activo. Usa new_project o load_project primero."
             ))]
         session_notes = arguments.get("notes", "")
-        _active_project["last_updated"] = str(date.today())
+        active["last_updated"] = str(date.today())
 
-        # Actualizar BPM desde Ableton
         send_osc("/live/song/get/tempo")
         time.sleep(0.4)
         with osc_lock:
             tempo = osc_responses.get("/live/song/get/tempo", (None,))[0]
         if tempo:
-            _active_project["production"]["bpm"] = tempo
+            active["production"]["bpm"] = tempo
 
-        _save_project_file(_active_project)
+        _save_project_file(active)
 
-        # Append to session.md
-        slug = _active_project["slug"]
+        slug = active["slug"]
         session_file = _project_path(slug) / "session.md"
         if session_notes and session_file.exists():
             existing = session_file.read_text()
@@ -1234,7 +1260,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             )
 
         return [types.TextContent(type="text", text=(
-            f"✅ Proyecto '{_active_project['name']}' guardado\n"
+            f"✅ Proyecto '{active['name']}' guardado\n"
             f"📁 ableton-mcp/projects/{slug}/project.json actualizado"
         ))]
 
@@ -1254,6 +1280,306 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         if not projects:
             return [types.TextContent(type="text", text="No hay proyectos guardados. Usa new_project para crear uno.")]
         return [types.TextContent(type="text", text="🎵 Proyectos en ableton-mcp:\n\n" + "\n\n".join(projects))]
+
+    # ── Plugin Registry ──────────────────────────────────────────
+
+    elif name == "build_plugin_registry":
+        force = arguments.get("force_rescan", False)
+        last = get_last_scan()
+        if last and not force:
+            summary = list_registry_summary()
+            return [types.TextContent(
+                type="text",
+                text=(
+                    f"📦 Registry ya existe (último scan: {last})\n\n"
+                    f"{summary}\n\n"
+                    "Usa force_rescan=true para re-escanear."
+                ),
+            )]
+
+        categories_arg = arguments.get("categories", [])
+        search_terms = categories_arg if categories_arg else ["", "VST", "AU", "Max"]
+
+        total_added = 0
+        scan_log: list[str] = []
+
+        for term in search_terms:
+            send_osc("/live/browser/scan", term)
+            time.sleep(2.0)
+
+            with osc_lock:
+                raw = osc_responses.get("/live/browser/scan", ())
+
+            items = _parse_browser_items(raw)
+            loadable = [it for it in items if it.get("loadable") and it.get("uri")]
+
+            category = term or "General"
+            added = add_plugins_bulk(loadable, category=category)
+            total_added += added
+            scan_log.append(f"  '{term}' → {len(items)} items, {added} plugins")
+
+        from datetime import datetime
+        mark_as_scanned(datetime.now().isoformat())
+        summary = list_registry_summary()
+
+        return [types.TextContent(
+            type="text",
+            text=(
+                f"✅ Plugin Registry construido\n\n"
+                f"Escaneos realizados:\n" + "\n".join(scan_log) + "\n\n"
+                f"{summary}\n\n"
+                "💡 Ahora puedes usar load_plugin_by_name con nombres como:\n"
+                "   'Maschine 2', 'Arturia Pigments', 'Reaktor 6', 'Orbit'"
+            ),
+        )]
+
+    elif name == "load_plugin_by_name":
+        track_idx   = arguments["track_index"]
+        plugin_name = arguments["plugin_name"].strip()
+
+        result = find_plugin_uri(plugin_name)
+
+        if result is None:
+            matches = search_plugins(plugin_name)
+            if matches:
+                options = "\n".join(f"  • {m['display_name']} ({m.get('type','')})" for m in matches[:10])
+                return [types.TextContent(
+                    type="text",
+                    text=(
+                        f"⚠️ '{plugin_name}' no encontrado exactamente. ¿Quisiste decir:\n{options}\n\n"
+                        "Intenta con el nombre exacto, o usa scan_plugins para ver URIs directas."
+                    ),
+                )]
+            return [types.TextContent(
+                type="text",
+                text=(
+                    f"❌ '{plugin_name}' no encontrado en el registry.\n\n"
+                    "Ejecuta build_plugin_registry con Ableton abierto para actualizar la lista.\n"
+                    "Luego usa search_plugin_registry para buscar nombres disponibles."
+                ),
+            )]
+
+        plugin_uri = result["uri"]
+        display    = result.get("display_name", plugin_name)
+
+        send_osc("/live/view/set/selected_track", track_idx)
+        time.sleep(0.3)
+        send_osc("/live/track/load_device", track_idx, plugin_uri)
+        time.sleep(1.5)
+
+        return [types.TextContent(
+            type="text",
+            text=(
+                f"✅ {display} cargado en Track {track_idx + 1}\n"
+                f"📍 URI: {plugin_uri}\n"
+                f"🏷️ Tipo: {result.get('type','')}\n"
+                "💡 Usa get_track_devices para confirmar la carga.\n"
+                "💡 Usa get_device_params para explorar sus parámetros."
+            ),
+        )]
+
+    elif name == "search_plugin_registry":
+        query = arguments["query"]
+        limit = arguments.get("limit", 20)
+        results = search_plugins(query, limit)
+
+        if not results:
+            summary = list_registry_summary()
+            return [types.TextContent(
+                type="text",
+                text=(
+                    f"🔍 Sin resultados para '{query}'\n\n"
+                    f"Estado del registry:\n{summary}"
+                ),
+            )]
+
+        lines = [f"🔍 Plugins que coinciden con '{query}':"]
+        for r in results:
+            lines.append(f"  • {r['display_name']}  ({r.get('type','')})")
+            if r.get("uri"):
+                uri_short = r["uri"][:60] + "…" if len(r["uri"]) > 60 else r["uri"]
+                lines.append(f"    URI: {uri_short}")
+        lines.append(f"\n💡 Usa load_plugin_by_name(track_index=N, plugin_name='<nombre>') para cargar.")
+        return [types.TextContent(type="text", text="\n".join(lines))]
+
+    # ── Track Control ─────────────────────────────────────────────
+
+    elif name == "set_track_volume":
+        track_idx = arguments["track_index"]
+        volume    = float(arguments["volume"])
+        send_osc("/live/track/set/volume", track_idx, volume)
+        db_approx = "0 dB" if abs(volume - 0.85) < 0.01 else f"{'↑' if volume > 0.85 else '↓'} {volume:.2f}"
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1}: volumen → {volume:.2f} ({db_approx})",
+        )]
+
+    elif name == "set_track_pan":
+        track_idx = arguments["track_index"]
+        pan       = float(arguments["pan"])
+        send_osc("/live/track/set/panning", track_idx, pan)
+        side = "C" if abs(pan) < 0.05 else ("←L" if pan < 0 else "R→")
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1}: pan → {pan:+.2f} ({side})",
+        )]
+
+    elif name == "set_track_mute":
+        track_idx = arguments["track_index"]
+        muted     = bool(arguments["muted"])
+        send_osc("/live/track/set/mute", track_idx, int(muted))
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1}: {'🔇 muteado' if muted else '🔊 activo'}",
+        )]
+
+    elif name == "set_track_solo":
+        track_idx = arguments["track_index"]
+        solo      = bool(arguments["solo"])
+        send_osc("/live/track/set/solo", track_idx, int(solo))
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1}: solo {'🟡 ON' if solo else 'OFF'}",
+        )]
+
+    elif name == "arm_track":
+        track_idx = arguments["track_index"]
+        armed     = bool(arguments["armed"])
+        send_osc("/live/track/set/arm", track_idx, int(armed))
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1}: {'🔴 armado para grabación' if armed else 'desarmado'}",
+        )]
+
+    elif name == "set_track_name":
+        track_idx = arguments["track_index"]
+        new_name  = arguments["name"]
+        send_osc("/live/track/set/name", track_idx, new_name)
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1} renombrado a '{new_name}'",
+        )]
+
+    elif name == "set_track_color":
+        track_idx = arguments["track_index"]
+        color     = int(arguments["color"])
+        send_osc("/live/track/set/color", track_idx, color)
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1}: color → #{color:06X}",
+        )]
+
+    elif name == "get_track_info":
+        track_idx = arguments["track_index"]
+
+        send_osc("/live/track/get/name",   track_idx)
+        send_osc("/live/track/get/volume", track_idx)
+        send_osc("/live/track/get/panning", track_idx)
+        send_osc("/live/track/get/mute",   track_idx)
+        send_osc("/live/track/get/solo",   track_idx)
+        send_osc("/live/track/get/arm",    track_idx)
+        send_osc("/live/track/get/num_devices", track_idx)
+        time.sleep(0.6)
+
+        with osc_lock:
+            name_val   = osc_responses.get("/live/track/get/name",   ("?",))[0]
+            volume_val = osc_responses.get("/live/track/get/volume", ("?",))[0]
+            pan_val    = osc_responses.get("/live/track/get/panning", ("?",))[0]
+            mute_val   = osc_responses.get("/live/track/get/mute",   (0,))[0]
+            solo_val   = osc_responses.get("/live/track/get/solo",   (0,))[0]
+            arm_val    = osc_responses.get("/live/track/get/arm",    (0,))[0]
+            ndev_val   = osc_responses.get("/live/track/get/num_devices", (0,))[0]
+
+        return [types.TextContent(
+            type="text",
+            text=(
+                f"📊 Track {track_idx + 1}: {name_val}\n"
+                f"  Volume : {volume_val}\n"
+                f"  Pan    : {pan_val}\n"
+                f"  Mute   : {'🔇 sí' if int(mute_val) else 'no'}\n"
+                f"  Solo   : {'🟡 sí' if int(solo_val) else 'no'}\n"
+                f"  Arm    : {'🔴 sí' if int(arm_val) else 'no'}\n"
+                f"  Devices: {ndev_val}"
+            ),
+        )]
+
+    elif name == "set_track_send":
+        track_idx  = arguments["track_index"]
+        send_idx   = arguments["send_index"]
+        value      = float(arguments["value"])
+        send_osc("/live/track/set/send", track_idx, send_idx, value)
+        return_letter = chr(ord('A') + send_idx)
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track {track_idx + 1} → Return {return_letter}: {value:.2f}",
+        )]
+
+    elif name == "create_audio_track":
+        idx        = arguments.get("track_index", -1)
+        track_name = arguments.get("name", "Audio Track")
+        send_osc("/live/song/create_audio_track", idx)
+        time.sleep(0.3)
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Track de audio '{track_name}' creado en posición {idx}",
+        )]
+
+    # ── Clip & Scene Control ────────────────────────────────────
+
+    elif name == "trigger_clip":
+        track_idx = arguments["track_index"]
+        scene_idx = arguments["scene_index"]
+        send_osc("/live/clip_slot/fire", track_idx, scene_idx)
+        return [types.TextContent(
+            type="text",
+            text=f"▶️ Clip disparado — Track {track_idx + 1}, Escena {scene_idx + 1}",
+        )]
+
+    elif name == "stop_clip":
+        track_idx = arguments["track_index"]
+        scene_idx = arguments["scene_index"]
+        send_osc("/live/clip_slot/stop", track_idx, scene_idx)
+        return [types.TextContent(
+            type="text",
+            text=f"⏹️ Clip detenido — Track {track_idx + 1}, Escena {scene_idx + 1}",
+        )]
+
+    elif name == "trigger_scene":
+        scene_idx = arguments["scene_index"]
+        send_osc("/live/song/trigger_scene", scene_idx)
+        return [types.TextContent(
+            type="text",
+            text=f"▶️ Escena {scene_idx + 1} disparada",
+        )]
+
+    # ── Session ──────────────────────────────────────────────────
+
+    elif name == "set_time_signature":
+        numerator   = int(arguments["numerator"])
+        denominator = int(arguments["denominator"])
+        send_osc("/live/song/set/signature_numerator",   numerator)
+        send_osc("/live/song/set/signature_denominator", denominator)
+        return [types.TextContent(
+            type="text",
+            text=f"✅ Compás cambiado a {numerator}/{denominator}",
+        )]
+
+    elif name == "get_ableton_version":
+        send_osc("/live/application/get/version")
+        time.sleep(0.5)
+        with osc_lock:
+            version_raw = osc_responses.get("/live/application/get/version", ())
+        version_str = " ".join(str(v) for v in version_raw) if version_raw else "desconocida"
+        registry_summary = list_registry_summary()
+        return [types.TextContent(
+            type="text",
+            text=(
+                f"🎛️ Ableton Live\n"
+                f"  Versión: {version_str}\n"
+                f"  OSC: conectado (puerto 11000/11001)\n\n"
+                f"Estado del Plugin Registry:\n{registry_summary}"
+            ),
+        )]
 
     else:
         return [types.TextContent(type="text", text=f"❌ Herramienta '{name}' no reconocida")]
