@@ -1,0 +1,9 @@
+{
+  "name": "ableton-mcp-m4l-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bridge Node for Max: conecta un device de Max for Live con Claude Code (MCP server 'ableton')",
+  "dependencies": {
+    "max-api": "*"
+  }
+}
