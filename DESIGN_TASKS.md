@@ -64,17 +64,35 @@ Los badges de tecnología no requieren CI — son estáticos y se agregan manual
 
 ---
 
-## DT4 · Patch de Max for Live — "Claude Channel Strip" `[ALTA — manual, NO delegable a Claude Code]`
+## DT4 · Patch de Max for Live — "Claude Channel Strip" `[COMPLETADO — 2026-06-25]`
 
-**Por qué es manual:** Claude Code edita archivos y corre comandos, pero no tiene control de la interfaz gráfica de Max — no puede arrastrar objetos ni conectar cables en el patcher. El `.amxd` se construye a mano en la GUI de Max (~10-15 min), mientras que todo el código (los bridges de DEV7) sí lo hace Claude Code.
+**Por qué es manual:** Claude Code edita archivos y corre comandos, pero no tiene control de la interfaz gráfica de Max — no puede arrastrar objetos ni conectar cables en el patcher. El `.amxd` se construye a mano en la GUI de Max. El archivo resultante está respaldado en `m4l-bridge/device/Claude Channel Strip.amxd`.
 
-**Pasos:**
+**Receta validada (lo que realmente funciona):**
+
 1. En Live: arrastra un **Max Audio Effect** vacío a cualquier canal → clic en el ícono de lápiz para abrir el editor.
-2. Agregar objeto `live.path` con mensaje `path this_device canonical_parent` disparado por `loadbang` → resuelve el track donde vive el device.
-3. Conectar la salida a un `live.object` con mensaje `path`, y pasar el resultado por un `regexp` (patrón `tracks (\d+)`) para extraer el número de track.
-4. Agregar `live.text` o `textedit` para escribir el prompt.
-5. Agregar `node.script` apuntando a `m4l-bridge/bridge-simple.js` (cambiar a `bridge-persistent.js` después de DEV11). Conectar: track_index + texto → mensaje `ask <track_index> <prompt>` al inlet de `node.script`.
-6. Conectar la salida `response` del `node.script` a un `comment` o `live.text` en modo display.
+2. Agregar un objeto `number` (para el track index) y un objeto `textedit` (para el prompt).
+3. Conectar `number` → `prepend track` → inlet del `node.script`.
+4. Conectar `textedit` → `prepend ask` → inlet del `node.script`.
+5. Agregar objeto `node.script` con la ruta completa al bridge y **`@autostart 1`**:
+   ```
+   node.script /Users/brianear/proyectos/ableton-mcp/m4l-bridge/bridge-simple.js @autostart 1
+   ```
+6. Conectar la salida del `node.script` → `route response` → `prepend set` → `comment`.
 7. Guardar como `Claude Channel Strip.amxd` en `~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect/`.
 
-**Verificación:** arrastra el device a un track distinto al original — el track_index mostrado debe actualizarse solo, sin reconfigurar nada.
+**Errores encontrados en construcción (no en la receta original):**
+
+- **CRÍTICO — `@autostart 1` es obligatorio.** Sin él el script nunca arranca y no hay ningún error visible: silencio total, ni siquiera un `print` de prueba produce salida. El único síntoma es que el device no responde a nada. La consola de Max NO muestra error por la ausencia de `@autostart 1`.
+- **Typo: el objeto es `comment`, no `coment`.** El typo produce "No such object" en la consola de Max — fácil de cometer, fácil de diagnosticar.
+- **Verificación de carga correcta:** la consola de Max debe mostrar la carga del script sin errores **inmediatamente** al confirmar la caja de `node.script`, sin necesidad de enviar ningún mensaje todavía.
+
+**Troubleshooting:**
+
+| Síntoma | Causa | Fix |
+|---|---|---|
+| `node.script: argument must be a <path>` | Falta la ruta al script o `@autostart 1` | Escribir la ruta completa + `@autostart 1` |
+| Silencio total, device no responde | `@autostart 1` ausente | Agregar `@autostart 1` al objeto |
+| "No such object" en consola | Typo en nombre de objeto (ej: `coment`) | Corregir a `comment` |
+
+**Estado al cierre 2026-06-25:** device construido y funcionando en sesión en vivo. Pendiente confirmar comportamiento de índice de track (ver AUDIT.md Addendum 3).
