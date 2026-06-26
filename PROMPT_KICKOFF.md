@@ -143,3 +143,11 @@ Verificación final antes de cerrar la sesión:
 **Simultáneo con KICKOFF A:** grabar el demo GIF (DESIGN_TASKS.md DT1) si Ableton está abierto.
 **Independiente, cuando quieras:** KICKOFF C (bridge M4L) — no depende de B, pero sí asume que A ya está hecho (necesita un repo real para el commit).
 **Después de KICKOFF C, manual (no es una sesión de Claude Code):** DESIGN_TASKS.md DT4 — construir el patch `.amxd` en la GUI de Max apuntando al bridge ya creado y probado.
+
+---
+
+## Estado final — 2026-06-25
+
+- **KICKOFF C: COMPLETO Y VALIDADO EN PRODUCCIÓN REAL** — bridge-simple.js y bridge-persistent.js creados, test E2E con clip real en Ableton confirmado visualmente (DEV10 ✔), test de persistencia con 4x speedup en turno 2 confirmado (DEV11 ✔). Commiteado en `33d0c3e`.
+- **DT4: COMPLETO — construido a mano por Brian** — device "Claude Channel Strip.amxd" construido en la GUI de Max y probado en sesión en vivo. Respaldado en `m4l-bridge/device/`. Receta validada documentada en DESIGN_TASKS.md DT4 (actualizado con errores reales encontrados: `@autostart 1` obligatorio, typo `comment`).
+- **Pendiente próxima sesión:** confirmar comportamiento de índice de track al usar el device en vivo (ver AUDIT.md Addendum 3).
