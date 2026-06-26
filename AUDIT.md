@@ -139,3 +139,17 @@ Detectado al probar el bridge M4L: se pidió "sube el volumen a -6 dB" en dos se
 **Tools potencialmente con el mismo patrón (sin confirmar todavía):** `set_track_pan` y `set_track_send` — ambas podrían tener el mismo problema de "descripción con un punto de referencia, sin conversión real". No verificado en esta sesión.
 
 **Acción recomendada:** segundo GitHub Issue, separado del de endpoints OSC inexistentes — son dos clases de bug distintas (endpoint que no existe vs. conversión numérica nunca implementada).
+
+---
+
+## Addendum 3 — 2026-06-26 (sesión de cierre, bridge M4L en vivo)
+
+**Observación abierta — cambio de volumen no confirmado en el track al usar el device.**
+
+Probado el bridge M4L en vivo con el device "Claude Channel Strip.amxd" construido a mano en la misma sesión: se pidió cambiar el volumen de un track vía lenguaje natural desde el device. La tool respondió con mensaje de éxito, pero el fader del track que se estaba observando no cambió visualmente.
+
+No se confirmó si el OSC llegó a un track distinto o si no llegó a ningún lado. Una hipótesis posible es off-by-one de índice: AbletonOSC es 0-indexado, por lo que si el `number box` del device tenía el valor `1`, el OSC apuntó al segundo track visual, no al primero. No se verificó el estado del segundo track en ese momento.
+
+**Esta observación queda abierta.** No se puede concluir si es un bug del bridge, un error del usuario en el índice, o un problema de OSC.
+
+**Próxima sesión:** reproducir el escenario con Ableton abierto, verificar el track inmediatamente después de pedir el cambio (revisar TODOS los tracks, no solo el esperado), y confirmar qué track_index recibió la acción — antes de descartar o confirmar como bug nuevo.
