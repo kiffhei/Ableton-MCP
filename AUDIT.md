@@ -117,3 +117,25 @@ Una sesión posterior (no commiteada hasta ahora) agregó `plugin_registry.py` y
 **Fix real (sin hacer todavía):** fork de AbletonOSC con un módulo `browser.py` que envuelva `Application.get_browser()` + `load_item()` de la Live Object Model — patrón ya usado en `track.py`/`device.py` del repo oficial.
 
 **Acción recomendada:** abrir un GitHub Issue trackeando esto (`gh issue create`) en vez de dejarlo solo como nota en este archivo, ahora que el repo es público.
+
+---
+
+## Addendum 2 — 2026-06-25 (mismo día, sesión KICKOFF C)
+
+**`set_track_volume` no tiene conversión determinística dB → valor de fader. El LLM la estima cada vez, con resultados distintos por sesión.**
+
+Detectado al probar el bridge M4L: se pidió "sube el volumen a -6 dB" en dos sesiones distintas y el resultado fue diferente cada vez (`volume=0.75` una vez, `volume=0.426` otra; `-12 dB` dio `0.65` y luego `0.2135`).
+
+**Causa raíz confirmada leyendo el código** (no es una hipótesis): la tool `set_track_volume` recibe el parámetro `volume` ya en escala 0.0–1.0, no en dB. La `description` da un solo punto de referencia ("0.85 = 0 dB") y ninguna fórmula. El handler hace `float(arguments["volume"])` y lo manda a OSC sin tocarlo. Cuando el usuario pide un valor en dB, es **Claude quien tiene que estimar mentalmente** la conversión con un solo punto de referencia — y por eso el resultado varía entre sesiones. No es un bug de OSC ni de Ableton: la tool nunca tuvo la conversión implementada.
+
+**Por qué no hay una fórmula simple para "arreglarlo ya":** el mapeo real de Ableton no es logarítmico simple. Según discusión de desarrolladores de Max for Live, el tramo de -20dB a 0dB es lineal, pero el tramo por debajo de -20dB tiene una curva que ni la comunidad de M4L tiene documentada públicamente con precisión. Adivinar una fórmula aquí repetiría el mismo problema que estamos corrigiendo.
+
+**Fix real recomendado (no hacer en esta sesión):** calibración empírica, no una fórmula adivinada:
+1. En la UI de Ableton, ensanchar el mixer para mostrar la escala de dB junto al fader (función nativa de Live).
+2. Mover el fader a 5-6 marcas conocidas (0, -6, -12, -20, -30, -60 dB) y leer el valor float real vía OSC (`/live/track/get/volume`) en cada una.
+3. Construir una tabla de interpolación con esos pares (dB, float) reales — no estimados.
+4. Cambiar el `inputSchema` de la tool para aceptar `db` directamente, y hacer la conversión en Python con esa tabla antes de llamar a OSC. El LLM deja de tener que adivinar nada.
+
+**Tools potencialmente con el mismo patrón (sin confirmar todavía):** `set_track_pan` y `set_track_send` — ambas podrían tener el mismo problema de "descripción con un punto de referencia, sin conversión real". No verificado en esta sesión.
+
+**Acción recomendada:** segundo GitHub Issue, separado del de endpoints OSC inexistentes — son dos clases de bug distintas (endpoint que no existe vs. conversión numérica nunca implementada).
