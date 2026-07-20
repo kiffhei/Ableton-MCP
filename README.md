@@ -1,5 +1,9 @@
 # Ableton Live MCP Server
 
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![MCP](https://img.shields.io/badge/MCP-Anthropic-orange)
+![Ableton](https://img.shields.io/badge/Ableton%20Live-10%2F11%2F12-black)
+
 > Controla Ableton Live con lenguaje natural via Claude Code.
 > Motor de teoría musical para progresiones en cualquier tonalidad/escala,
 > estado persistente de proyectos, y clonado de canciones reales vía Spotify.

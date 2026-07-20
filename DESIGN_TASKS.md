@@ -4,6 +4,15 @@
 
 ---
 
+## Estado de tareas (verificado contra el repo real — 2026-07-20)
+
+- [ ] DT1 · Demo GIF para README
+- [x] DT2 · Diagrama de arquitectura
+- [x] DT3 · Badges para el README (completado 2026-07-20)
+- [x] DT4 · Patch de Max for Live — "Claude Channel Strip" (completado 2026-06-25)
+
+---
+
 ## DT1 · Demo GIF para README `[ALTA — máximo impacto de portafolio]`
 
 **Qué grabar (30-45 segundos):**
