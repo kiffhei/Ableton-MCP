@@ -55,6 +55,35 @@ def normalize_name(name: str) -> str:
     return name.lower().strip().replace(" ", "_").replace("-", "_")
 
 
+def _parse_browser_items(raw: tuple) -> list[dict]:
+    """
+    Parsea la respuesta OSC del browser de Ableton.
+    AbletonOSC devuelve los items como args planos en grupos de 4:
+    (name, uri, is_loadable, is_folder, name, uri, ...)
+    Con fallback a pares (name, uri) para versiones antiguas.
+    """
+    items: list[dict] = []
+    if not raw:
+        return items
+    if len(raw) % 4 == 0:
+        for i in range(0, len(raw), 4):
+            items.append({
+                "name":     str(raw[i]),
+                "uri":      str(raw[i + 1]),
+                "loadable": bool(raw[i + 2]),
+                "folder":   bool(raw[i + 3]),
+            })
+    elif len(raw) % 2 == 0:
+        for i in range(0, len(raw), 2):
+            items.append({
+                "name":     str(raw[i]),
+                "uri":      str(raw[i + 1]),
+                "loadable": True,
+                "folder":   False,
+            })
+    return items
+
+
 def add_plugin_to_registry(name: str, uri: str, category: str = "", plugin_type: str = "") -> None:
     registry = _load_registry()
     key = normalize_name(name)

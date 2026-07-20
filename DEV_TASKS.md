@@ -13,6 +13,22 @@ Estado: funcional como herramienta, sin git, sin GitHub.
 
 ---
 
+## Estado de tareas (verificado contra el código real — 2026-07-20)
+
+- [x] DEV1 · Crear `.gitignore`
+- [x] DEV2 · Inicializar git y publicar en GitHub (`kiffhei/Ableton-MCP`)
+- [x] DEV3 · Actualizar README — capacidades reales (nota: README sigue en 19 tools; CLAUDE.md ya documenta 37 — falta otra pasada de actualización, fuera del alcance original de esta tarea)
+- [x] DEV4 · Limpiar CLAUDE.md para repo público (CLAUDE.internal.md separado, sin rutas/sesión en el público)
+- [x] DEV5 · Refactor: separar `server.py` en módulos (completado 2026-07-20 — `server.py` bajó de 1599 a 63 líneas; ver nota de alcance abajo)
+- [x] DEV6 · Agregar tests de music theory
+- [x] DEV7 · Estructura del bridge Node for Max
+- [x] DEV8 · Verificar que el MCP server responde en modo headless (inferido — DT4 de diseño confirma el device funcionando en vivo)
+- [x] DEV9 · Resolver ruta absoluta del binario `claude` (placeholder ya reemplazado en los bridges)
+- [x] DEV10 · Test E2E del bridge simple desde terminal
+- [ ] DEV11 · Migrar a `bridge-persistent.js` (el patch de Max documentado en DESIGN_TASKS.md DT4 sigue usando `bridge-simple.js`)
+
+---
+
 ## DEV1 · Crear `.gitignore` `[XS]` — HACER PRIMERO
 
 ```gitignore
@@ -163,6 +179,23 @@ from project_manager import new_project, load_project, save_project
 ```
 
 **Beneficio para portafolio:** cualquier reclutador que abra el repo ve módulos cohesivos, no un monolito.
+
+**Nota de cierre (2026-07-20):** el plan original subestimó el problema — `music_theory.py`/`osc_client.py`/`project_manager.py`/`plugin_registry.py` ya existían y contenían la lógica de negocio, pero el archivo seguía en ~1600 líneas porque el grueso real eran los 37 esquemas `types.Tool` de `list_tools()` (~700 líneas) y el dispatcher `call_tool()` (~770 líneas), que habían crecido de 19 a 37 tools sin refactor. Estructura final aplicada:
+
+```
+src/
+├── server.py            (63 líneas — app MCP, list_tools/call_tool, main())
+├── tool_definitions.py  (esquemas de las 37 tools, solo datos)
+├── transport_tools.py   (tempo, play/pause, session info, compás, versión)
+├── clip_tools.py        (notas MIDI, progresiones, clips, escenas)
+├── device_tools.py      (instrumentos, plugins, parámetros de devices)
+├── track_tools.py        (volumen, pan, mute, solo, arm, color, sends)
+├── project_tools.py      (wrappers MCP de new/load/save/list project)
+├── registry_tools.py     (wrappers MCP del plugin registry)
+├── music_theory.py / osc_client.py / project_manager.py / plugin_registry.py  (ya existían)
+```
+
+Cada módulo de handlers expone un dict `HANDLERS = {"tool_name": fn, ...}`; `server.py` los combina y despacha por nombre. Verificado: 37 tools ↔ 37 handlers (sin huérfanos en ningún sentido), 27/27 tests de `test_music_theory.py` en verde, y smoke test de `list_tools()`/`call_tool()` end-to-end sin Ableton corriendo.
 
 ---
 
