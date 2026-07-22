@@ -25,7 +25,7 @@ Estado: funcional como herramienta, sin git, sin GitHub.
 - [x] DEV8 · Verificar que el MCP server responde en modo headless (inferido — DT4 de diseño confirma el device funcionando en vivo)
 - [x] DEV9 · Resolver ruta absoluta del binario `claude` (placeholder ya reemplazado en los bridges)
 - [x] DEV10 · Test E2E del bridge simple desde terminal
-- [ ] DEV11 · Migrar a `bridge-persistent.js` (el patch de Max documentado en DESIGN_TASKS.md DT4 sigue usando `bridge-simple.js`)
+- [x] DEV11 · Migrar a `bridge-persistent.js` (verificado 2026-07-21 — el `.amxd` real ya apuntaba a `bridge-persistent.js`; el checklist estaba desactualizado. Ver AUDIT.md Addendum 4)
 
 ---
 

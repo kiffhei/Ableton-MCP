@@ -114,13 +114,13 @@ def get_track_info(arguments: dict) -> list[types.TextContent]:
     time.sleep(0.6)
 
     with osc_lock:
-        name_val   = osc_responses.get("/live/track/get/name",   ("?",))[0]
-        volume_val = osc_responses.get("/live/track/get/volume", ("?",))[0]
-        pan_val    = osc_responses.get("/live/track/get/panning", ("?",))[0]
-        mute_val   = osc_responses.get("/live/track/get/mute",   (0,))[0]
-        solo_val   = osc_responses.get("/live/track/get/solo",   (0,))[0]
-        arm_val    = osc_responses.get("/live/track/get/arm",    (0,))[0]
-        ndev_val   = osc_responses.get("/live/track/get/num_devices", (0,))[0]
+        name_val   = osc_responses.get("/live/track/get/name",   ("?", "?"))[1]
+        volume_val = osc_responses.get("/live/track/get/volume", ("?", "?"))[1]
+        pan_val    = osc_responses.get("/live/track/get/panning", ("?", "?"))[1]
+        mute_val   = osc_responses.get("/live/track/get/mute",   (0, 0))[1]
+        solo_val   = osc_responses.get("/live/track/get/solo",   (0, 0))[1]
+        arm_val    = osc_responses.get("/live/track/get/arm",    (0, 0))[1]
+        ndev_val   = osc_responses.get("/live/track/get/num_devices", (0, 0))[1]
 
     return [types.TextContent(
         type="text",

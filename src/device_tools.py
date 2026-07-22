@@ -92,8 +92,8 @@ def get_device_params(arguments: dict) -> list[types.TextContent]:
     time.sleep(0.3)
 
     with osc_lock:
-        names = list(osc_responses.get("/live/device/get/parameters/name", ()))
-        values = list(osc_responses.get("/live/device/get/parameters/value", ()))
+        names = list(osc_responses.get("/live/device/get/parameters/name", ()))[2:]
+        values = list(osc_responses.get("/live/device/get/parameters/value", ()))[2:]
 
     if not names:
         return [types.TextContent(
@@ -153,11 +153,11 @@ def get_track_devices(arguments: dict) -> list[types.TextContent]:
     time.sleep(0.3)
 
     with osc_lock:
-        num_raw     = osc_responses.get("/live/track/get/num_devices", (0,))
-        names_raw   = osc_responses.get("/live/track/get/devices/name", ())
-        classes_raw = osc_responses.get("/live/track/get/devices/class_name", ())
+        num_raw     = osc_responses.get("/live/track/get/num_devices", (0, 0))
+        names_raw   = osc_responses.get("/live/track/get/devices/name", ())[1:]
+        classes_raw = osc_responses.get("/live/track/get/devices/class_name", ())[1:]
 
-    num_devices = int(num_raw[0]) if num_raw else 0
+    num_devices = int(num_raw[1]) if len(num_raw) > 1 else 0
 
     if num_devices == 0 or not names_raw:
         return [types.TextContent(

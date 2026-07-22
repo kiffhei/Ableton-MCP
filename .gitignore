@@ -23,3 +23,7 @@ CLAUDE.local.md
 # Editores
 .vscode/
 .idea/
+
+# Dashboard local — feedback y logs no van al repo público
+dashboard/feedback.md
+dashboard/server.log
