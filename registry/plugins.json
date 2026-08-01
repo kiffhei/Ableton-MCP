@@ -1,0 +1,62 @@
+{
+  "plugins": {
+    "auv2": {
+      "name": "AUv2",
+      "uri": "query:Plugins#AUv2",
+      "category": "AU",
+      "type": "AU",
+      "display_name": "AUv2"
+    },
+    "apple": {
+      "name": "Apple",
+      "uri": "query:Plugins#AUv2:Apple",
+      "category": "General",
+      "type": "General",
+      "display_name": "Apple"
+    },
+    "vst": {
+      "name": "VST",
+      "uri": "query:Plugins#VST",
+      "category": "VST",
+      "type": "VST",
+      "display_name": "VST"
+    },
+    "vst3": {
+      "name": "VST3",
+      "uri": "query:Plugins#VST3",
+      "category": "VST",
+      "type": "VST",
+      "display_name": "VST3"
+    },
+    "audiomodern": {
+      "name": "Audiomodern",
+      "uri": "query:Plugins#VST3:Audiomodern",
+      "category": "AU",
+      "type": "AU",
+      "display_name": "Audiomodern"
+    },
+    "blue_cat_audio": {
+      "name": "Blue Cat Audio",
+      "uri": "query:Plugins#VST3:Blue%20Cat%20Audio",
+      "category": "AU",
+      "type": "AU",
+      "display_name": "Blue Cat Audio"
+    },
+    "vital_audio": {
+      "name": "Vital Audio",
+      "uri": "query:Plugins#AUv2:Vital%20Audio",
+      "category": "AU",
+      "type": "AU",
+      "display_name": "Vital Audio"
+    },
+    "xln_audio": {
+      "name": "XLN Audio",
+      "uri": "query:Plugins#AUv2:XLN%20Audio",
+      "category": "AU",
+      "type": "AU",
+      "display_name": "XLN Audio"
+    }
+  },
+  "favorites": {},
+  "last_scan": "2026-07-22T19:36:39.840105"
+}

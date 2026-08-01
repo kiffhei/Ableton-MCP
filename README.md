@@ -103,29 +103,64 @@ Con Ableton abierto y AbletonOSC activo:
 
 ---
 
-## Herramientas disponibles (19)
+## Herramientas disponibles (37)
 
+### Plugins
+| Herramienta | Descripción |
+|---|---|
+| `build_plugin_registry` | **Escanea Ableton y guarda TODOS los plugins instalados** — ejecutar una vez |
+| `load_plugin_by_name` | Carga plugin por nombre: 'Maschine 2', 'Pigments', 'Reaktor 6', 'Orbit' |
+| `search_plugin_registry` | Busca plugins en el registry local |
+
+### Track Control
+| Herramienta | Descripción |
+|---|---|
+| `set_track_volume` | Volumen de track (0.0–1.0, 0.85 = 0 dB) |
+| `set_track_pan` | Paneo (-1.0 izquierda, 0.0 centro, 1.0 derecha) |
+| `set_track_mute` | Mutear/desmutear track |
+| `set_track_solo` | Solo/unsolo track |
+| `arm_track` | Armar track para grabación |
+| `set_track_name` | Renombrar track |
+| `set_track_color` | Color de track por RGB entero |
+| `get_track_info` | Info completa: vol, pan, mute, solo, arm, devices |
+| `set_track_send` | Nivel de envío a return track |
+| `create_audio_track` | Crea track de audio |
+
+### Clip & Scene Control
+| Herramienta | Descripción |
+|---|---|
+| `trigger_clip` | Dispara un clip en Session View |
+| `stop_clip` | Detiene un clip |
+| `trigger_scene` | Dispara una escena completa (fila) |
+
+### Session
+| Herramienta | Descripción |
+|---|---|
+| `set_time_signature` | Cambia el compás (ej: 4/4, 3/4, 6/8) |
+| `get_ableton_version` | Versión de Live + estado del registry |
+
+### Originales
 | Herramienta | Descripción |
 |---|---|
 | `add_chord_progression` | Genera progresiones en cualquier tonalidad y escala |
 | `add_midi_notes` | Agrega notas MIDI individuales con control total |
-| `create_midi_track` | Crea un nuevo track MIDI con nombre y color |
+| `create_midi_track` | Crea un nuevo track MIDI |
 | `set_tempo` | Cambia el BPM del proyecto |
-| `play_pause` | Controla reproducción |
+| `play_pause` | Controla reproducción (play/pause/stop) |
 | `get_session_info` | Info del proyecto: tracks, escenas, BPM |
 | `set_clip_color` | Colorea clips por índice RGB |
-| `load_instrument` | Carga un instrumento nativo de Ableton |
-| `load_plugin` | Carga un plugin VST/AU instalado |
-| `load_sample` | Carga un archivo WAV en un Simpler |
-| `get_device_params` | Lee los parámetros de un device/plugin |
+| `load_instrument` | Carga instrumento nativo de Ableton |
+| `load_plugin` | Carga plugin por URI exacta |
+| `load_sample` | Carga WAV/AIFF en Simpler |
+| `get_device_params` | Lee parámetros de un device/plugin |
 | `set_device_param` | Modifica un parámetro específico |
-| `set_device_params_bulk` | Modifica múltiples parámetros en una llamada |
-| `get_track_devices` | Lista los devices de un track |
-| `scan_plugins` | Escanea plugins instalados por nombre |
-| `new_project` | Crea un nuevo proyecto con estado persistente |
-| `load_project` | Carga el estado de un proyecto guardado |
-| `save_project_state` | Guarda el estado actual del proyecto |
-| `list_projects` | Lista todos los proyectos guardados |
+| `set_device_params_bulk` | Modifica múltiples parámetros a la vez |
+| `get_track_devices` | Lista devices de un track |
+| `scan_plugins` | Escanea browser de Ableton |
+| `new_project` | Crea proyecto con estado persistente |
+| `load_project` | Carga proyecto existente |
+| `save_project_state` | Guarda estado del proyecto |
+| `list_projects` | Lista proyectos guardados |
 
 ---
 

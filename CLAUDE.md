@@ -34,131 +34,25 @@ Preguntas necesarias para proyecto nuevo:
 
 ## Herramientas disponibles (37 tools)
 
-### Plugins (nuevas)
-| Herramienta | Descripción |
-|---|---|
-| `build_plugin_registry` | **Escanea Ableton y guarda TODOS los plugins instalados** — ejecutar una vez |
-| `load_plugin_by_name` | Carga plugin por nombre: 'Maschine 2', 'Pigments', 'Reaktor 6', 'Orbit' |
-| `search_plugin_registry` | Busca plugins en el registry local |
-
-### Track Control (nuevas)
-| Herramienta | Descripción |
-|---|---|
-| `set_track_volume` | Volumen de track (0.0–1.0, 0.85 = 0 dB) |
-| `set_track_pan` | Paneo (-1.0 izquierda, 0.0 centro, 1.0 derecha) |
-| `set_track_mute` | Mutear/desmutear track |
-| `set_track_solo` | Solo/unsolo track |
-| `arm_track` | Armar track para grabación |
-| `set_track_name` | Renombrar track |
-| `set_track_color` | Color de track por RGB entero |
-| `get_track_info` | Info completa: vol, pan, mute, solo, arm, devices |
-| `set_track_send` | Nivel de envío a return track |
-| `create_audio_track` | Crea track de audio |
-
-### Clip & Scene Control (nuevas)
-| Herramienta | Descripción |
-|---|---|
-| `trigger_clip` | Dispara un clip en Session View |
-| `stop_clip` | Detiene un clip |
-| `trigger_scene` | Dispara una escena completa (fila) |
-
-### Session (nuevas)
-| Herramienta | Descripción |
-|---|---|
-| `set_time_signature` | Cambia el compás (ej: 4/4, 3/4, 6/8) |
-| `get_ableton_version` | Versión de Live + estado del registry |
-
-### Originales
-| Herramienta | Descripción |
-|---|---|
-| `add_chord_progression` | Genera progresiones en cualquier tonalidad y escala |
-| `add_midi_notes` | Agrega notas MIDI individuales con control total |
-| `create_midi_track` | Crea un nuevo track MIDI |
-| `set_tempo` | Cambia el BPM del proyecto |
-| `play_pause` | Controla reproducción (play/pause/stop) |
-| `get_session_info` | Info del proyecto: tracks, escenas, BPM |
-| `set_clip_color` | Colorea clips por índice RGB |
-| `load_instrument` | Carga instrumento nativo de Ableton |
-| `load_plugin` | Carga plugin por URI exacta |
-| `load_sample` | Carga WAV/AIFF en Simpler |
-| `get_device_params` | Lee parámetros de un device/plugin |
-| `set_device_param` | Modifica un parámetro específico |
-| `set_device_params_bulk` | Modifica múltiples parámetros a la vez |
-| `get_track_devices` | Lista devices de un track |
-| `scan_plugins` | Escanea browser de Ableton |
-| `new_project` | Crea proyecto con estado persistente |
-| `load_project` | Carga proyecto existente |
-| `save_project_state` | Guarda estado del proyecto |
-| `list_projects` | Lista proyectos guardados |
+Ver tabla completa en `README.md` — ahí sirve porque la leen los usuarios
+finales del MCP, que no ven el schema. El schema MCP ya expone las 37 tools
+en tiempo de ejecución.
 
 ---
 
 ## Plugins del usuario (preferidos)
 
-### Workflow con plugins
-1. Primera vez: ejecutar `build_plugin_registry` con Ableton abierto (browser visible, tecla B)
-2. Luego usar `load_plugin_by_name` con nombres amigables
-3. Confirmar con `get_track_devices` y explorar con `get_device_params`
+Lista completa en memoria del proyecto:
+`~/.claude/projects/-Users-brianear-proyectos-ableton-mcp/memory/user_prefs.md`
 
-### Plugins favoritos documentados
-
-| Plugin | Tipo | Rol principal | Cómo cargar |
-|--------|------|---------------|-------------|
-| **Maschine 2** (NI) | VST3 Instrument | Drum machines, samplers, texturas | `load_plugin_by_name("Maschine 2")` |
-| **Arturia Pigments** | VST3 Instrument | Síntesis creativa, leads, pads, texturas | `load_plugin_by_name("Pigments")` |
-| **Arturia AudioLab V** | VST3 Instrument | Síntesis clásica | `load_plugin_by_name("AudioLab V")` |
-| **Reaktor 6** (NI) | VST3 Instrument | Síntesis avanzada, cajas de ritmo, texturas | `load_plugin_by_name("Reaktor 6")` |
-| **Orbit** | VST3 Effect | Reverb/delay espacial, efectos atmosféricos | `load_plugin_by_name("Orbit")` |
-
-### Roles sugeridos por instrumento
-
-| Rol | Plugin preferido | Alternativa nativa |
-|-----|------------------|--------------------|
-| Caja de ritmos / grooves | Maschine 2 | Drum Rack |
-| Texturas / ambient | Reaktor 6 | Granulator II |
-| Síntesis creativa / pads | Arturia Pigments | Wavetable |
-| Síntesis clásica / leads | Arturia AudioLab V | Operator |
-| Efectos de espacio | Orbit | Reverb nativo |
-| Bajo analógico | Analog (nativo) | Operator |
-| Keys / piano | Electric (nativo) | Sampler + sample |
-
-### Parámetros clave (explorar con get_device_params primero)
-
-**Nota:** Los índices de parámetros varían entre versiones de plugin. Siempre ejecutar
-`get_device_params` antes de `set_device_param` para confirmar los índices exactos en
-la instalación de este equipo.
-
-**Arturia Pigments — parámetros típicos a explorar:**
-- Oscillator Type, Pitch, Wavetable Position
-- Filter Cutoff, Filter Resonance
-- Env Amount, Attack, Decay, Sustain, Release
-- LFO Rate, LFO Amount
-- FX: Chorus, Reverb, Delay
-
-**Reaktor 6 — flujo recomendado:**
-- Cargar con `load_plugin_by_name("Reaktor 6")`
-- Usar `get_device_params` para ver qué ensemble está activo
-- Los parámetros expuestos dependen del ensemble cargado
-
-**Maschine 2 — flujo recomendado:**
-- Principalmente controlado desde la interfaz de Maschine
-- Para integración MIDI: crear track MIDI, cargar Maschine 2, armar el track
-- Usar `arm_track` para habilitar grabación de MIDI desde Maschine
+Workflow: `build_plugin_registry` (una vez) → `load_plugin_by_name` con nombre
+amigable → confirmar con `get_track_devices` y explorar con `get_device_params`.
 
 ---
 
 ## Sistema de tonalidades y escalas
 
-El motor calcula progresiones matemáticamente desde cualquier raíz.
-Funciona con cualquier nota y cualquier escala.
-
-Escalas disponibles:
-- major / minor (natural)
-- harmonic_minor / melodic_minor
-- dorian / phrygian / lydian / mixolydian / locrian
-- pentatonic_major / pentatonic_minor
-- blues / whole_tone / diminished
-- phrygian_dominant / hungarian_minor / double_harmonic
+Ver skill `.claude/skills/tonalidades-escalas/SKILL.md`.
 
 ---
 
@@ -180,17 +74,9 @@ cinematic, orchestral, neoclassical
 
 ---
 
-## Referencia de instrumentos nativos por rol
+## Referencia de instrumentos por rol
 
-| Rol | Ableton sugerido | Alternativa |
-|---|---|---|
-| Bajo analógico | Analog | Operator |
-| Bajo de sample | Simpler | Sampler |
-| Pad / atmósfera | Wavetable | Operator |
-| Lead sintetizador | Operator | Wavetable |
-| Piano / keys | Sampler + sample | Grand Piano rack |
-| Batería electrónica | Drum Rack | |
-| Textura granular | Granulator II | Sampler |
+Ver skill `.claude/skills/instrumentos-por-rol/SKILL.md`.
 
 ---
 
@@ -227,6 +113,10 @@ Nivel de fidelidad:
 ---
 
 ## Reglas de comportamiento
+
+> `CLAUDE.md` es la fuente de verdad para "Reglas de comportamiento" — la versión
+> en `CLAUDE.internal.md` quedó desactualizada (no cubre plugin registry ni
+> `load_plugin_by_name`) y fue reemplazada ahí por un puntero a esta sección.
 
 ### Siempre
 - Índices base 0 para tracks y escenas
