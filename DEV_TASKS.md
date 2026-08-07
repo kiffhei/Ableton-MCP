@@ -409,3 +409,31 @@ Una vez validado: en el patch de Max (ver DESIGN_TASKS.md DT4), el objeto `node.
 9. **DEV7** → 30 min (crear los dos bridges)
 10. **DEV10** → 15 min (test E2E sin Max)
 11. **DEV11** → 10 min (migrar a persistente, solo si DEV10 pasa)
+
+---
+
+## Vitrina BA Automation — pasos para entrar al portafolio público
+
+> Agregado 2026-08-07 tras la auditoría de publicabilidad. Problema de fondo: el 90% del
+> valor de este proyecto es invisible para quien no tiene Ableton Live instalado. No hay
+> modo mock ni demo headless, así que la evidencia visual no es un extra, es el entregable.
+
+- [ ] **VIT1 — Agregar `pytest>=8.0` a `requirements.txt`.** `DEV_TASKS.md:236` marca esta
+      tarea como completada, pero pytest no está en el archivo (verificado 2026-08-07). En
+      un clon limpio, el comando que el propio README documenta (`pytest tests/ -v`) truena
+      con `ModuleNotFoundError`. Un reclutador que clone el repo y siga las instrucciones
+      se topa con eso en el primer minuto. Las 27 pruebas de `test_music_theory.py` pasan
+      cuando se ejecutan con pytest ya instalado: el problema es de empaquetado, no de
+      lógica.
+- [ ] **VIT2 — Quitar las rutas personales de `m4l-bridge/`.** Hay `/Users/brianear/...`
+      hardcodeado en 4 archivos, contradiciendo al README que instruye usar `TU_USUARIO`.
+      Reemplazar por variable de entorno o placeholder.
+- [ ] **VIT3 — Nota al inicio del README: "requiere Ableton Live + AbletonOSC, no hay modo
+      demo".** Honestidad por adelantado: mejor decirlo tú a que alguien lo descubra tras
+      clonar.
+- [ ] **VIT4 — Grabar un video o GIF corto del flujo funcionando.** Es la única forma de
+      que alguien sin Ableton entienda qué hace. Sin esto, el proyecto es ilegible para el
+      95% de quien lo vea, por bien construido que esté.
+
+**Estado para vitrina: PUBLICABLE con esfuerzo bajo (VIT1-VIT3), pero de bajo valor
+demostrativo hasta tener VIT4.**
