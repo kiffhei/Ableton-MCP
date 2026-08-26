@@ -12,7 +12,7 @@ reordenar ni "optimizar" sin releer esa sección primero.
 import math
 from typing import Callable
 
-from harmonic_skeletons import ESQUELETOS_POR_GENERO
+from harmonic_skeletons import ESQUELETOS_POR_GENERO, FAMILIA_POR_GENERO, ESTRUCTURA_POR_FAMILIA
 from music_theory import build_chord, scale_degree_to_root, note_name_to_midi, SCALES
 
 
@@ -163,3 +163,60 @@ def generate_progression(
         "grados_acordes": grados_acordes,
         "notas": notas,
     }
+
+
+# ── Estructura de canción (README §2B) ──────────────────────────────────────
+
+def get_familia_genero(genero: str) -> str:
+    """
+    Retorna la familia de estructura de canción de un género
+    ('electronica'|'cancion'|'cinematica'). Lanza excepción explícita si el
+    género no existe — no hay fallback a otra familia.
+    """
+    familia = FAMILIA_POR_GENERO.get(genero)
+    if familia is None:
+        raise GeneroNoEncontradoError(
+            f"Género sin familia de estructura asignada: '{genero}'"
+        )
+    return familia
+
+
+def generate_song_structure(
+    genero: str,
+    key: str,
+    scale: str | None = None,
+    seed: int = 0,
+    octave: int = 3,
+    velocity: int = 80,
+    bars_per_chord: float = 2.0,
+) -> dict:
+    """
+    Orquesta generate_progression (sin modificarla) para producir un set de
+    ≥4 secciones con rol de canción (intro/verso/coro/puente, o el
+    vocabulario que corresponda a la familia del género — README §2B). Cada
+    sección usa seed + índice como semilla (única regla de derivación
+    permitida, para reproducibilidad cruzada con harmony-lab) y su propio
+    creativity_level/semicadencia según ESTRUCTURA_POR_FAMILIA.
+
+    Lanza GeneroNoEncontradoError si el género no existe o no tiene familia
+    asignada — nunca cae a otra familia en silencio.
+    """
+    familia = get_familia_genero(genero)
+    secciones_def = ESTRUCTURA_POR_FAMILIA[familia]["secciones"]
+
+    secciones = []
+    for i, seccion_def in enumerate(secciones_def):
+        progresion = generate_progression(
+            genero=genero,
+            key=key,
+            scale=scale,
+            creativity_level=seccion_def["creativity_level"],
+            seed=seed + i,
+            semicadencia=seccion_def["semicadencia"],
+            octave=octave,
+            velocity=velocity,
+            bars_per_chord=bars_per_chord,
+        )
+        secciones.append({"nombre": seccion_def["nombre"], **progresion})
+
+    return {"familia": familia, "secciones": secciones}

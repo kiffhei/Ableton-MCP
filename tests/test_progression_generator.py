@@ -3,10 +3,14 @@ sys.path.insert(0, "src")
 
 import pytest
 
-from harmonic_skeletons import FUNCION_POR_GRADO, ESQUELETOS_POR_GENERO
+from harmonic_skeletons import (
+    FUNCION_POR_GRADO, ESQUELETOS_POR_GENERO, FAMILIA_POR_GENERO, ESTRUCTURA_POR_FAMILIA,
+)
 from progression_generator import (
     mulberry32,
     generate_progression,
+    generate_song_structure,
+    get_familia_genero,
     _elegir_esqueleto_y_acordes,
     GeneroNoEncontradoError,
 )
@@ -184,3 +188,86 @@ def test_cross_verification_vector_deep_house_seed_42():
     )
     assert full["skeleton_id"] == "deep_house_2"
     assert full["grados_acordes"] == [(2, "maj7"), (2, "maj7"), (6, "dom7"), (2, "maj7")]
+
+
+# ── get_familia_genero() ──────────────────────────────────────────────────
+
+def test_get_familia_genero_resuelve_familia():
+    assert get_familia_genero("house") == "electronica"
+    assert get_familia_genero("pop") == "cancion"
+    assert get_familia_genero("ambient") == "cinematica"
+
+
+def test_get_familia_genero_lanza_error_si_no_existe():
+    with pytest.raises(GeneroNoEncontradoError):
+        get_familia_genero("no_existe")
+
+
+def test_familia_por_genero_cubre_los_76_sin_huerfanos():
+    generos = set(ESQUELETOS_POR_GENERO.keys())
+    assert len(generos) == 76
+    assert set(FAMILIA_POR_GENERO.keys()) == generos
+    for familia in FAMILIA_POR_GENERO.values():
+        assert familia in ("electronica", "cancion", "cinematica")
+
+
+# ── generate_song_structure() (README §2B) ─────────────────────────────────
+
+def test_estructura_por_familia_tiene_al_menos_4_secciones():
+    for familia in ("electronica", "cancion", "cinematica"):
+        assert len(ESTRUCTURA_POR_FAMILIA[familia]["secciones"]) >= 4
+
+
+def test_generate_song_structure_es_reproducible():
+    a = generate_song_structure("trance", "D", "minor", seed=7)
+    b = generate_song_structure("trance", "D", "minor", seed=7)
+    assert a == b
+
+
+def test_generate_song_structure_secciones_no_son_todas_identicas():
+    resultado = generate_song_structure("pop", "C", "major", seed=3)
+    grados = [tuple(s["grados_acordes"]) for s in resultado["secciones"]]
+    assert len(set(grados)) > 1
+
+
+def test_generate_song_structure_vocabulario_electronica():
+    resultado = generate_song_structure("techno", "A", seed=1)
+    assert resultado["familia"] == "electronica"
+    assert [s["nombre"] for s in resultado["secciones"]] == [
+        "intro", "build_up", "drop", "breakdown",
+    ]
+
+
+def test_generate_song_structure_vocabulario_cancion():
+    resultado = generate_song_structure("reggae", "A", seed=1)
+    assert resultado["familia"] == "cancion"
+    assert [s["nombre"] for s in resultado["secciones"]] == [
+        "intro", "verso", "coro", "puente",
+    ]
+
+
+def test_generate_song_structure_vocabulario_cinematica():
+    resultado = generate_song_structure("cinematic", "A", seed=1)
+    assert resultado["familia"] == "cinematica"
+    assert [s["nombre"] for s in resultado["secciones"]] == [
+        "intro", "desarrollo", "climax", "resolucion",
+    ]
+
+
+def test_generate_song_structure_genero_inexistente_lanza_error():
+    with pytest.raises(GeneroNoEncontradoError):
+        generate_song_structure("no_existe", "C", seed=1)
+
+
+# Vector de verificación cruzada (README §2B + §5): genero="deep_house",
+# key="A", scale="minor", seed=100 — idéntico en harmony-lab (JS).
+def test_cross_verification_vector_song_structure_deep_house_seed_100():
+    resultado = generate_song_structure("deep_house", "A", "minor", seed=100)
+    assert resultado["familia"] == "electronica"
+    grados = [(s["nombre"], s["skeleton_id"], s["grados_acordes"]) for s in resultado["secciones"]]
+    assert grados == [
+        ("intro", "deep_house_1", [(0, "min7"), (0, "min7"), (3, "min7"), (0, "min7")]),
+        ("build_up", "deep_house_1", [(2, "maj7"), (2, "maj7"), (1, "min7"), (6, "dom7")]),
+        ("drop", "deep_house_3", [(0, "min7"), (3, "min7"), (6, "dom7"), (0, "min7")]),
+        ("breakdown", "deep_house_1", [(2, "maj7"), (2, "maj7"), (3, "min7"), (0, "min7")]),
+    ]

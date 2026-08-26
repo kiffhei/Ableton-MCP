@@ -1,6 +1,6 @@
 """
 tool_definitions.py — Ableton Live MCP Server
-Esquemas de las 38 tools MCP expuestas por el servidor (solo datos, sin lógica).
+Esquemas de las 39 tools MCP expuestas por el servidor (solo datos, sin lógica).
 """
 
 from mcp import types
@@ -117,6 +117,57 @@ TOOL_DEFINITIONS: list[types.Tool] = [
                     "default": 80,
                     "description": "Velocidad MIDI 0-127",
                 },
+                "bars_per_chord": {
+                    "type": "number",
+                    "default": 2.0,
+                    "description": "Compases por acorde",
+                },
+            },
+            "required": ["genero", "key", "seed"],
+        },
+    ),
+    types.Tool(
+        name="generate_song_structure",
+        description=(
+            "Genera un SET de al menos 4 secciones con rol de canción (intro/verso/coro/"
+            "puente, o el vocabulario que corresponda según la familia del género — "
+            "electrónica usa intro/build_up/drop/breakdown, cinemática usa intro/desarrollo/"
+            "climax/resolucion) y crea un clip por sección en escenas consecutivas del "
+            "Session View. Cada sección usa su propio nivel de creatividad y puede terminar "
+            "en semicadencia (puente/build_up) según la familia. Requiere que esas escenas "
+            "ya existan — no crea escenas nuevas, igual que add_chord_progression. "
+            "Ejemplo: genero='deep_house', key='A', seed=100, start_scene_index=0"
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "genero": {
+                    "type": "string",
+                    "description": (
+                        "Género del catálogo Würfelspiel — los mismos 76 géneros que "
+                        "add_chord_progression y generate_chord_progression."
+                    ),
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Nota raíz: C, C#, Db, D, D#, Eb, E, F, F#, Gb, G, G#, Ab, A, A#, Bb, B",
+                },
+                "scale": {
+                    "type": "string",
+                    "description": "Escala a usar. Si se omite, usa la escala_default del género.",
+                },
+                "seed": {
+                    "type": "integer",
+                    "description": "Semilla base entera. Cada sección usa seed+índice — mismo seed = misma estructura completa, siempre.",
+                },
+                "track_index": {"type": "integer", "default": 0},
+                "start_scene_index": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Primera escena a usar; las siguientes secciones ocupan las escenas consecutivas.",
+                },
+                "octave": {"type": "integer", "default": 3, "description": "Octava base 0-6"},
+                "velocity": {"type": "integer", "default": 80, "description": "Velocidad MIDI 0-127"},
                 "bars_per_chord": {
                     "type": "number",
                     "default": 2.0,
