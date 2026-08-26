@@ -1,6 +1,6 @@
 """
 tool_definitions.py — Ableton Live MCP Server
-Esquemas de las 37 tools MCP expuestas por el servidor (solo datos, sin lógica).
+Esquemas de las 38 tools MCP expuestas por el servidor (solo datos, sin lógica).
 """
 
 from mcp import types
@@ -49,6 +49,81 @@ TOOL_DEFINITIONS: list[types.Tool] = [
                 },
             },
             "required": ["style", "key"],
+        },
+    ),
+    types.Tool(
+        name="generate_chord_progression",
+        description=(
+            "Genera una progresión de acordes usando el algoritmo Würfelspiel "
+            "(juego de dados musical determinista) del contrato canónico "
+            "compartido con harmony-lab: elige un esqueleto armónico (secuencia "
+            "de funciones T/S/D) y, por slot, un acorde concreto — reproducible "
+            "bit a bit dado el mismo seed. A diferencia de add_chord_progression "
+            "(patrón fijo por género), aquí el resultado varía según seed y "
+            "creativity_level, con al menos 3 esqueletos distintos por género "
+            "en los mismos 76 géneros que add_chord_progression. "
+            "Ejemplo: genero='deep_house', key='A', seed=42, creativity_level=0.7"
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "genero": {
+                    "type": "string",
+                    "description": (
+                        "Género del catálogo Würfelspiel — los mismos 76 géneros que "
+                        "add_chord_progression (ver ESQUELETOS_POR_GENERO en "
+                        "harmonic_skeletons.py o el README del contrato canónico para la "
+                        "lista completa). Género fuera de esta lista lanza error explícito, "
+                        "sin fallback a otro género."
+                    ),
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Nota raíz: C, C#, Db, D, D#, Eb, E, F, F#, Gb, G, G#, Ab, A, A#, Bb, B",
+                },
+                "scale": {
+                    "type": "string",
+                    "description": "Escala a usar. Si se omite, usa la escala_default del género (minor o major según el género).",
+                },
+                "creativity_level": {
+                    "type": "number",
+                    "default": 0.0,
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": (
+                        "0.0 = siempre la progresión canónica del género (opción[0] en cada slot). "
+                        "1.0 = máxima variedad dentro de las opciones declaradas por función "
+                        "(nunca sale de la tonalidad/escala)."
+                    ),
+                },
+                "seed": {
+                    "type": "integer",
+                    "description": "Semilla entera del PRNG determinista (mulberry32). Mismo seed + mismos parámetros = mismo resultado, siempre.",
+                },
+                "semicadencia": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Si es true, sustituye el último slot del esqueleto elegido por una función Dominante (termina en tensión en vez de resolver en tónica).",
+                },
+                "track_index": {"type": "integer", "default": 0},
+                "scene_index": {"type": "integer", "default": 0},
+                "octave": {
+                    "type": "integer",
+                    "default": 3,
+                    "description": "Octava base 0-6",
+                },
+                "velocity": {
+                    "type": "integer",
+                    "default": 80,
+                    "description": "Velocidad MIDI 0-127",
+                },
+                "bars_per_chord": {
+                    "type": "number",
+                    "default": 2.0,
+                    "description": "Compases por acorde",
+                },
+            },
+            "required": ["genero", "key", "seed"],
         },
     ),
     types.Tool(

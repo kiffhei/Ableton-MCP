@@ -9,6 +9,7 @@ from mcp import types
 
 from music_theory import build_progression, GENRE_PATTERNS
 from osc_client import send_osc
+from progression_generator import generate_progression, GeneroNoEncontradoError
 
 
 def add_midi_notes(arguments: dict) -> list[types.TextContent]:
@@ -87,6 +88,70 @@ def add_chord_progression(arguments: dict) -> list[types.TextContent]:
     )]
 
 
+def generate_chord_progression(arguments: dict) -> list[types.TextContent]:
+    genero = arguments["genero"]
+    key = arguments["key"]
+    scale = arguments.get("scale")
+    creativity_level = arguments.get("creativity_level", 0.0)
+    seed = arguments["seed"]
+    semicadencia = arguments.get("semicadencia", False)
+    track_idx = arguments.get("track_index", 0)
+    scene_idx = arguments.get("scene_index", 0)
+    octave = arguments.get("octave", 3)
+    velocity = arguments.get("velocity", 80)
+    bars_per_chord = arguments.get("bars_per_chord", 2.0)
+    clip_name = arguments.get("clip_name", f"{key} {genero} (seed {seed})")
+
+    try:
+        resultado = generate_progression(
+            genero=genero,
+            key=key,
+            scale=scale,
+            creativity_level=creativity_level,
+            seed=seed,
+            semicadencia=semicadencia,
+            octave=octave,
+            velocity=velocity,
+            bars_per_chord=bars_per_chord,
+        )
+    except GeneroNoEncontradoError as error:
+        return [types.TextContent(type="text", text=f"❌ {error}")]
+
+    notes = resultado["notas"]
+    n_chords = len(resultado["grados_acordes"])
+    total_length = bars_per_chord * 4 * n_chords
+
+    send_osc("/live/clip_slot/create_clip", track_idx, scene_idx, float(total_length))
+    time.sleep(0.4)
+
+    note_args = [track_idx, scene_idx]
+    for n in notes:
+        note_args += [
+            int(n["pitch"]),
+            float(n["position"]),
+            float(n["duration"]),
+            velocity,
+            0,
+        ]
+    send_osc("/live/clip/add/notes", *note_args)
+    time.sleep(0.2)
+
+    send_osc("/live/clip/set/name", track_idx, scene_idx, clip_name)
+
+    chord_summary = " → ".join(f"grado{d} {t}" for d, t in resultado["grados_acordes"])
+
+    return [types.TextContent(
+        type="text",
+        text=(
+            f"✅ Progresión Würfelspiel '{genero}' en {key} agregada\n"
+            f"📍 Track {track_idx+1}, Escena {scene_idx+1}\n"
+            f"🎲 Esqueleto: {resultado['skeleton_id']} | seed={seed} | creativity_level={creativity_level}\n"
+            f"🎹 Acordes: {chord_summary}\n"
+            f"⏱️ {bars_per_chord} compases por acorde | {len(notes)} notas totales"
+        )
+    )]
+
+
 def set_clip_color(arguments: dict) -> list[types.TextContent]:
     track_idx = arguments["track_index"]
     scene_idx = arguments["scene_index"]
@@ -127,6 +192,7 @@ def trigger_scene(arguments: dict) -> list[types.TextContent]:
 HANDLERS = {
     "add_midi_notes": add_midi_notes,
     "add_chord_progression": add_chord_progression,
+    "generate_chord_progression": generate_chord_progression,
     "set_clip_color": set_clip_color,
     "trigger_clip": trigger_clip,
     "stop_clip": stop_clip,
