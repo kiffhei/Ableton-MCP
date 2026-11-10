@@ -2,8 +2,11 @@ const { spawn } = require("child_process");
 const Max = require("max-api");
 
 let sessionId = null;
-const CLAUDE_BIN = "/Users/brianear/.local/bin/claude";
-const REPO_PATH = "/Users/brianear/proyectos/ableton-mcp";
+// Rutas resueltas sin depender del $PATH ni del entorno del shell — Max no los
+// hereda. Ver resolve-paths.js y DEV9 en ../DEV_TASKS.md.
+const { REPO_PATH, resolverClaudeBin } = require("./resolve-paths");
+
+const CLAUDE_BIN = resolverClaudeBin();
 
 Max.addHandler("ask", (trackIndex, ...promptWords) => {
   const args = [

@@ -1,6 +1,9 @@
 // m4l-bridge/test-bridge.js
 const { spawn } = require("child_process");
-const CLAUDE_BIN = "/Users/brianear/.local/bin/claude";
+// Configurar via variable de entorno — ver m4l-bridge/README.md
+const { resolverClaudeBin } = require("./resolve-paths");
+
+const CLAUDE_BIN = resolverClaudeBin();
 
 const proc = spawn(CLAUDE_BIN, [
   "-p", "Crea una progresión de deep house en Dm en el track 0",

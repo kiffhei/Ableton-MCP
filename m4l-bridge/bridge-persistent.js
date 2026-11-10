@@ -2,9 +2,11 @@ const { spawn, execSync } = require("child_process");
 const readline = require("readline");
 const Max = require("max-api");
 
-const CLAUDE_BIN = "/Users/brianear/.local/bin/claude";
-const REPO_PATH = "/Users/brianear/proyectos/ableton-mcp";
-const SERVER_PY_PATH = `${REPO_PATH}/src/server.py`;
+// Rutas resueltas sin depender del $PATH ni del entorno del shell — Max no los
+// hereda. Ver resolve-paths.js y DEV9 en ../DEV_TASKS.md.
+const { REPO_PATH, SERVER_PY_PATH, resolverClaudeBin } = require("./resolve-paths");
+
+const CLAUDE_BIN = resolverClaudeBin();
 
 // Node for Max no siempre mata el proceso node.script anterior cuando el
 // device se saca/reinserta (confirmado: quedaban dos cadenas Max→node→claude→

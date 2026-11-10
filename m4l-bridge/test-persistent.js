@@ -1,6 +1,9 @@
 const { spawn } = require("child_process");
 const readline = require("readline");
-const CLAUDE_BIN = "/Users/brianear/.local/bin/claude";
+// Configurar via variable de entorno — ver m4l-bridge/README.md
+const { resolverClaudeBin } = require("./resolve-paths");
+
+const CLAUDE_BIN = resolverClaudeBin();
 
 const claude = spawn(CLAUDE_BIN, [
   "-p", "--input-format", "stream-json", "--output-format", "stream-json",
