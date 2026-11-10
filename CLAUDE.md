@@ -96,6 +96,16 @@ Nivel de fidelidad:
 
 ---
 
+## Devices Max for Live de este repo
+
+Antes de tocar o construir cualquier device M4L (bridge, C&R Generator, o uno
+nuevo): leer `docs/M4L_DEVICE_GUIDE.md`. Cubre reglas de layout verificadas con
+feedback real (horizontal no vertical, qué controles necesitan su propia
+etiqueta), dónde vive de verdad el rango de automatización (no son los atributos
+de nivel superior), el `.amxd` como JSON editable sin GUI, y las dos causas reales
+de "cada sesión es un pedo" con el bridge MCP (puertos huérfanos, modelo
+explorando el repo en vez de llamar el MCP directo).
+
 ## Herramientas gratuitas de terceros
 
 Antes de construir un recurso musical desde cero vía OSC (ritmo complejo, separación

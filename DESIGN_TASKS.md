@@ -2,6 +2,13 @@
 > Este proyecto no tiene UI propia. Las tareas de "diseño" son de presentación y documentación visual.
 > Fecha: 2026-06-17
 
+> **Antes de tocar o construir cualquier device M4L (incluido uno nuevo en otro
+> proyecto): leer [`docs/M4L_DEVICE_GUIDE.md`](docs/M4L_DEVICE_GUIDE.md).** Es la
+> síntesis operativa de las reglas de layout, automatización y troubleshooting que
+> aparecieron a lo largo de DT4 y los Addendums de `AUDIT.md` — este archivo se
+> queda como bitácora histórica de tareas, esa guía es la referencia para trabajo
+> nuevo.
+
 ---
 
 ## Estado de tareas (verificado contra el repo real — 2026-07-20)
@@ -10,6 +17,7 @@
 - [x] DT2 · Diagrama de arquitectura
 - [x] DT3 · Badges para el README (completado 2026-07-20)
 - [x] DT4 · Patch de Max for Live — "Claude Channel Strip" (completado 2026-06-25)
+- [x] DT5 · Guía consolidada de diseño M4L — `docs/M4L_DEVICE_GUIDE.md` (completado 2026-11-10)
 
 ---
 
