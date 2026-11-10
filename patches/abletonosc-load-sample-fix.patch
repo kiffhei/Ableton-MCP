@@ -1,0 +1,64 @@
+--- a/abletonosc/track.py	2026-10-26 13:07:48.000000000 -0600
++++ b/abletonosc/track.py	2026-10-26 13:12:44.000000000 -0600
+@@ -330,27 +330,54 @@
+             browser = app.browser
+             self.song.view.selected_track = track
+             filename = file_path.split("/")[-1].split("\\")[-1]
+-            # Search in user samples/sounds
++            stem = filename.lower().rsplit(".", 1)[0]
++            # Search in user samples/sounds, plus any bookmarked "Places" folders
++            # (browser.user_folders) — third-party library folders (Maschine, Komplete,
++            # etc.) only show up there, never under sounds/drums/samples/user_library.
+             cats = [browser.sounds, browser.drums, browser.samples if hasattr(browser, 'samples') else None,
+                     browser.user_library if hasattr(browser, 'user_library') else None]
++            if hasattr(browser, 'user_folders'):
++                try:
++                    cats.extend(list(browser.user_folders))
++                except Exception:
++                    pass
+             for cat in cats:
+                 if cat is None:
+                     continue
+                 try:
+-                    item = _find_item_containing(cat.children, filename.lower().rsplit(".", 1)[0])
++                    item = _find_item_containing(cat.children, stem)
+                     if item is not None:
+                         browser.load_item(item)
+                         self.logger.info("load_sample: loaded '%s' on '%s'" % (filename, track.name))
+                         return
+                 except Exception:
+                     pass
+-            # Fallback: try direct file load via browser
++            # Not found in anything we can search. The old fallback here
++            # (browser.load_item("file://" + path)) could never work — load_item()
++            # requires a real BrowserItem object, not a string, and always raised
++            # "Python argument types ... did not match C++ signature". Instead of
++            # failing silently on that same bug again, log what the Browser actually
++            # exposes so the real category/attribute can be added here with evidence
++            # instead of another guess.
+             try:
+-                encoded = urllib.parse.quote(file_path, safe="/:")
+-                browser.load_item("file://" + encoded)
+-                self.logger.info("load_sample: fallback file URI load '%s'" % filename)
++                attrs = [a for a in dir(browser) if not a.startswith("_")]
++                self.logger.warning(
++                    "load_sample: '%s' not found in sounds/drums/samples/user_library/user_folders. "
++                    "browser attrs: %s" % (filename, attrs))
++                for a in attrs:
++                    try:
++                        val = getattr(browser, a)
++                        if hasattr(val, "children"):
++                            self.logger.warning("load_sample: browser.%s looks folder-like (has .children)" % a)
++                        elif isinstance(val, (list, tuple)) and len(val) and hasattr(val[0], "children"):
++                            self.logger.warning(
++                                "load_sample: browser.%s is a collection of folder-like items (len=%d)" % (a, len(val)))
++                    except Exception:
++                        pass
+             except Exception as e:
+-                self.logger.warning("load_sample: failed '%s': %s" % (filename, str(e)))
++                self.logger.warning("load_sample: introspection failed: %s" % str(e))
++            self.logger.warning("load_sample: failed to load '%s' — not found in any Browser "
++                                 "category AbletonOSC can search" % filename)
+ 
+         self.osc_server.add_handler("/live/track/load_sample", create_track_callback(track_load_sample))
+ 

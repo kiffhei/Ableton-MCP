@@ -1,0 +1,54 @@
+--- a/abletonosc/track.py
++++ b/abletonosc/track.py
+@@ -225,8 +225,11 @@
+             browser = app.browser
+             results = []
+             cats = [browser.instruments, browser.plugins, browser.audio_effects,
+-                    browser.midi_effects, browser.sounds, browser.drums]
++                    browser.midi_effects, browser.sounds, browser.drums,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
+             for cat in cats:
++                if cat is None:
++                    continue
+                 try:
+                     _search_browser(cat.children, query, results, max_results=40)
+                 except Exception:
+@@ -249,8 +252,11 @@
+             browser = app.browser
+             results = []
+             cats = [browser.instruments, browser.plugins, browser.audio_effects,
+-                    browser.midi_effects, browser.sounds, browser.drums]
++                    browser.midi_effects, browser.sounds, browser.drums,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
+             for cat in cats:
++                if cat is None:
++                    continue
+                 try:
+                     _search_browser(cat.children, "", results, max_results=80)
+                 except Exception:
+@@ -272,8 +278,11 @@
+             app = Live.Application.get_application()
+             browser = app.browser
+             cats = [browser.instruments, browser.plugins, browser.audio_effects,
+-                    browser.midi_effects, browser.sounds, browser.drums]
++                    browser.midi_effects, browser.sounds, browser.drums,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
+             for cat in cats:
++                if cat is None:
++                    continue
+                 try:
+                     item = _find_item_containing(cat.children, uri_or_name.lower())
+                     if item is not None:
+@@ -294,8 +303,11 @@
+             browser = app.browser
+             self.song.view.selected_track = track
+             cats = [browser.instruments, browser.plugins, browser.audio_effects,
+-                    browser.midi_effects]
++                    browser.midi_effects,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
+             for cat in cats:
++                if cat is None:
++                    continue
+                 try:
+                     item = _find_item_containing(cat.children, device_name)
+                     if item is not None:
