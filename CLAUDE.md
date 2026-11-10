@@ -96,6 +96,17 @@ Nivel de fidelidad:
 
 ---
 
+## Herramientas gratuitas de terceros
+
+Antes de construir un recurso musical desde cero vía OSC (ritmo complejo, separación
+de stems, variación melódica, live-looping por slices, efectos granulares/glitch),
+llamar primero `suggest_free_tool(task_description)`. Registro completo en
+`tools_knowledge_base.json`, herramientas descargadas en `tools/<nombre>/` con su
+propio README. Detalle y tabla de ejemplos en `README.md` → "Base de conocimiento de
+herramientas gratuitas".
+
+---
+
 ## Colores de referencia (RGB como entero)
 
 | Color | Entero | Hex |
@@ -126,6 +137,14 @@ Nivel de fidelidad:
 - Justificar la elección de instrumento
 - Si el usuario menciona un plugin por nombre → usar `load_plugin_by_name`
 - Si el registry está vacío → ejecutar `build_plugin_registry` primero
+- Verificar con `get_clip_notes` lo que un device realmente generó en un clip — no
+  asumir por el mensaje de confirmación de la tool que lo disparó, ni por lo que
+  debería hacer según su descripción (ver caso Call & Response Generator, AUDIT.md
+  Addendum 7)
+- **Si se encuentra algo nuevo por adaptar o corregir mientras se trabaja** (una tool
+  que falta, un bug real, un gap entre lo documentado y lo que realmente pasa),
+  implementarlo directamente en vez de solo reportarlo y dejarlo pendiente — siempre
+  que sea una corrección viable dentro del alcance de la sesión
 
 ### Nunca
 - No asumir que un device está cargado sin verificar

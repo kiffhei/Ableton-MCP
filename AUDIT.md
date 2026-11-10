@@ -188,3 +188,178 @@ No se confirmó si el OSC llegó a un track distinto o si no llegó a ningún la
 **Fix aplicado:** se mató manualmente la cadena vieja (PIDs 16156/16169) para desbloquear al usuario de inmediato, y se agregó a `bridge-persistent.js` una limpieza automática al arrancar: antes de lanzar su propio `claude`, corre `pkill -f ".../src/server.py"` (con una pausa breve para que el SO libere el puerto UDP) para matar cualquier huérfano de una carga anterior del device. Verificado en aislamiento (proceso decoy con el mismo path, `pkill` lo encontró y terminó, puerto liberado) — no se pudo probar el archivo `bridge-persistent.js` completo end-to-end porque requiere el módulo `max-api`, que solo existe corriendo dentro de Max.
 
 **Pendiente de confirmación del usuario:** que al reinsertar el device una vez más, la nueva sesión sí tenga las tools `mcp__ableton__*` disponibles desde el primer intento.
+
+---
+
+## Addendum 6 — 2026-08-10 (pasada de vitrina)
+
+**Contexto:** ejecución de VIT1, VIT2, VIT3 (checklist "Vitrina BA Automation" agregado
+2026-08-07) y segunda pasada de DEV3, pendientes desde la auditoría de publicabilidad.
+Cambios de documentación y empaquetado, sin tocar lógica de `src/*.py`.
+
+**VIT1 — `pytest` ausente de `requirements.txt`:**
+- Cambio: agregado `pytest>=8.0` a `requirements.txt`.
+- Verificado con: `pytest tests/ -v` → **27 passed in 0.19s** (todas en `tests/test_music_theory.py`).
+- Nota honesta: la verificación corrió con el pytest ya presente en el sistema (`/opt/anaconda3/bin/pytest`,
+  Python 3.9.7), no en un venv limpio recién creado — se intentó instalar `requirements.txt`
+  en un venv aislado (`python3 -m venv` + `pip install`) para replicar exactamente el
+  escenario de "clon limpio", pero el `pip install` se colgó por timeout de red dos veces
+  (2 min y 5 min) en este entorno y se abandonó. La corrección en sí (agregar la línea al
+  archivo) es correcta y verificable por inspección; lo que no se pudo confirmar con
+  evidencia fresca es el escenario exacto de "clon limpio + pip install" por una limitación
+  del entorno de ejecución, no del cambio.
+
+**VIT2 — rutas personales en `m4l-bridge/`:**
+- Encontradas 6 ocurrencias de `/Users/brianear/...` en 4 archivos: `bridge-simple.js`,
+  `bridge-persistent.js`, `test-bridge.js`, `test-persistent.js`.
+- Cambio: las dos constantes (`CLAUDE_BIN`, `REPO_PATH` donde aplica) ahora se leen de
+  `process.env.ABLETON_MCP_CLAUDE_BIN` y `process.env.ABLETON_MCP_REPO`, con fallback a
+  placeholders evidentes (`REPLACE_WITH_CLAUDE_BIN_PATH`, `REPLACE_WITH_ABLETON_MCP_REPO_PATH`)
+  en vez de una ruta hardcodeada de nadie en particular.
+- Documentado en `m4l-bridge/README.md` (nuevo): qué variables exportar, cómo obtener sus
+  valores (`which claude`, `pwd`), y la advertencia de que Max for Live lanzado desde
+  Finder/Dock no siempre hereda el `$PATH`/entorno de un shell interactivo.
+- Verificado con: `grep -rn "/Users/brianear" m4l-bridge/*.js` → sin resultados (exit 1).
+- Para que el device de Max de Brian siga funcionando, Brian necesita exportar
+  `ABLETON_MCP_CLAUDE_BIN` y `ABLETON_MCP_REPO` (en su `~/.zshrc` o en el entorno que Max
+  hereda) — no es automático solo con este cambio. Queda anotado en el propio
+  `m4l-bridge/README.md`.
+
+**VIT3 — advertencia honesta al inicio del README:**
+- Agregada nota de 3 líneas justo después del elevator pitch en `README.md`: requiere
+  Ableton Live + AbletonOSC corriendo, sin modo demo ni mock headless.
+
+**DEV3 (segunda pasada) — tabla del README desactualizada:**
+- La tabla anterior documentaba 19 tools; el código real (`src/tool_definitions.py`) tiene 37.
+- Reconstruida la tabla completa derivándola del código, no de documentación previa:
+  37 esquemas en `tool_definitions.py`, agrupados por los 6 módulos de handlers
+  (`transport_tools.py`, `clip_tools.py`, `device_tools.py`, `track_tools.py`,
+  `project_tools.py`, `registry_tools.py`).
+- Verificado con un script Python (AST) que extrae los nombres de `TOOL_DEFINITIONS` y los
+  nombres de cada dict `HANDLERS` de los 6 módulos: **37 nombres en cada lado, `diff`
+  vacío** — 37 tools ↔ 37 handlers, coincidencia exacta, sin huérfanos en ningún sentido.
+  Repetido contra la tabla final del README (extraída con grep): también 37/37, `diff` vacío.
+- Las 6 tools que llaman a endpoints OSC inexistentes en AbletonOSC estándar (`scan_plugins`,
+  `build_plugin_registry`, `load_instrument`, `load_plugin`, `load_plugin_by_name`,
+  `load_sample` — documentado arriba en este mismo archivo, auditoría original 2026-06-17)
+  quedaron marcadas con ⚠️ en la tabla del README y con una nota al pie explicando que
+  requieren extender el Remote Script. No se omitieron ni se presentaron como funcionales.
+- Confirmado que la sección "Arquitectura" con el diagrama ASCII de DT2 (`DESIGN_TASKS.md`)
+  ya existía en el README (agregada en una pasada anterior) — no hizo falta agregarla de nuevo.
+
+**Qué queda sin resolver:** VIT4 (grabar un video/GIF corto del flujo funcionando) — no es
+automatizable desde una sesión de Claude Code, requiere a Brian grabando su pantalla con
+Ableton Live abierto.
+
+---
+
+## Addendum 7 — 2026-09-13 (base de conocimiento de herramientas gratuitas + prueba en vivo)
+
+**Contexto:** se agregó `suggest_free_tool` — nueva tool MCP que recomienda herramientas
+gratuitas de terceros (Max for Live devices, Live Extensions, plugins) desde
+`tools_knowledge_base.json` antes de construir un recurso musical desde cero vía OSC.
+8 herramientas registradas (verificadas como gratuitas contra su página real, no contra
+suposiciones — 10 de las 16 originales del Linktree de sidebrain habían pasado a ser de
+paga desde que se armó la lista de referencia). Módulos nuevos: `src/free_tools.py`,
+`src/free_tools_handlers.py`. 40 tools totales, 53 tests pasando (`pytest`).
+
+**Prueba en vivo pedida por el usuario:** cargar Call & Response Generator en un track
+real ("Hard Techno Bass", 145 BPM) y no solo `suggest_free_tool`. Se encontraron dos
+bugs reales en el camino:
+
+**Bug 1 — `create_midi_track` reporta el nombre como aplicado sin aplicarlo.**
+`create_midi_track(name="Hard Techno Bass")` devolvió confirmación de éxito con ese
+nombre, pero `get_track_info` mostró el nombre por defecto de Ableton (`5-MIDI`).
+`set_track_name` explícito sí funcionó. No investigado a fondo cuál handler genera el
+mensaje sin verificar el resultado real — pendiente revisar `track_tools.py`/
+`project_tools.py`.
+
+**Bug 2 (más importante) — `scan_plugins`/`load_plugin` nunca encuentran nada puesto en
+User Library.** Se copió `C&R Generator.amxd` a
+`User Library/Presets/MIDI Effects/Max MIDI Effect/` con Live abierto; no aparecía en
+`scan_plugins`. Hipótesis inicial (indexado en caliente) descartada reiniciando Ableton
+por completo — seguía sin aparecer. Causa real, confirmada leyendo el Remote Script
+extendido de AbletonOSC (`~/Music/Ableton/User Library/Remote Scripts/AbletonOSC/
+abletonosc/track.py`, **no es parte de este repo**): los handlers
+`/live/browser/scan`, `/live/browser/get/children`, `/live/browser/load` y
+`/live/track/load_device` recorren `[instruments, plugins, audio_effects,
+midi_effects, sounds, drums]` — `browser.user_library` nunca estaba en esa lista. La
+ruta de samples (`track_load_sample`) sí la incluía (con `hasattr` de por medio); la de
+devices, no.
+
+**Fix aplicado:** se agregó `browser.user_library if hasattr(browser, 'user_library')
+else None` (con `continue` si es `None`) a las 4 listas de categorías. Verificado con
+`py_compile` antes de que el usuario reiniciara Ableton para cargar el Remote Script
+parchado. Exportado como patch versionado en este repo —
+`patches/abletonosc-browser-user-library.patch` + `patches/README.md` — porque la
+carpeta de AbletonOSC no es un git repo y no está respaldada en ningún lado propio.
+
+**Pendiente de confirmación:** reintentar `scan_plugins(filter="generator")` tras el
+reinicio de Ableton y continuar la carga del device + instrumento de bajo en el track
+si aparece. Detalle vivo en la memoria del proyecto (`pending-blockers.md` /
+`conventions-learned.md` / `incidents-bugs.md`).
+
+---
+
+## Addendum 8 — 2026-09-13 (mismo día, cierre de la prueba en vivo: causa raíz v8ui + `get_clip_notes`)
+
+**Continuación del Addendum 7.** Tras el patch de `browser.user_library`, `scan_plugins`
+sí encontró "C&R Generator" y `load_plugin` lo cargó correctamente en el track (confirmado
+con `get_track_devices`: `[00] C&R Generator (Max MIDI Effect)`, `[01] Analog
+(UltraAnalog)`). `get_device_params` expuso 10 parámetros reales y automatizables
+(Density, mutateAll, New Pair, Octave Jump, Octave, Randomize, Rate, Steps, live.dial).
+
+**El device no renderiza su UI.** Captura de pantalla del usuario mostró el editor de Max
+con un rectángulo rayado vacío y la etiqueta `(v8ui)` — el placeholder que Max dibuja
+cuando un objeto de interfaz no logra instanciarse. Causa confirmada con evidencia dura,
+no supuesta: el Max embebido en `Ableton Live 12 Suite.app/Contents/App-Resources/Max/
+Max.app` es la **versión 8.6.0** (`CFBundleShortVersionString`), mientras que la propia
+página de descarga de Cycling '74 (`cycling74.com/downloads`) lista **"Javascript V8
+Integration (v8, v8ui, v8.codebox)" como novedad de Max 9** — exactamente el objeto que
+usa este device. El producto ya declaraba "Max 9 o superior" como requisito en su propia
+página de Gumroad, leída al inicio de esta sesión.
+
+**Prueba definitiva de que no es solo cosmético:** se armó el track, se disparó grabación
+de un clip vacío, se disparó el parámetro "New Pair" (ciclo 0→1→0, varias veces) mientras
+grababa, se detuvo el clip, y se leyó su contenido con la tool nueva `get_clip_notes`
+(ver abajo). El clip tenía 9 notas — pero el usuario confirmó que las escribió él mismo a
+mano para comparar contra Analog, no el device. Sin la tool para leer el clip, esto se
+habría dado por sentado como "sí generó algo". **Conclusión: el motor de generación de
+Call & Response Generator no produce ninguna salida en Max 8.6** — no es solo la UI, es
+la lógica completa (consistente con que la lógica probablemente vive dentro del mismo
+script JS del `v8ui`, no en objetos Max clásicos separados).
+
+**Alcance del problema — no es todo el feature de herramientas gratuitas:**
+```bash
+grep -al "v8ui" tools/*/*.amxd tools/*/*.ablx
+```
+Solo `call-response-generator/C&R Generator.amxd` usa `v8ui`. `MLR Live.amxd`,
+`DrumSep...ablx` y `Styled Rhythm Generator...ablx` no lo usan — deberían funcionar sin
+problema en Max 8.6. Roar Preset Pack y Granular Slicer son presets de devices nativos
+de Live 12 (Roar, Granulator III), sin dependencia de Max for Live en absoluto.
+Philodendron y Scintillate son plugins VST3/AU independientes de Max.
+
+**Decisión del usuario:** no actualizar Ableton Live ni instalar Max 9 standalone
+(experiencia previa de crash al subir de versión mayor; se ofreció la ruta de Max 9
+standalone sin tocar Ableton, pero también se descartó). Call & Response Generator queda
+documentado como **no utilizable en este equipo** hasta que eso cambie — no se intentó
+ningún otro workaround técnico porque no existe uno: v8ui simplemente no está disponible
+en Max 8.6.
+
+**Tool nueva agregada a pedido del usuario: `get_clip_notes`.** El endpoint OSC
+`/live/clip/get/notes` ya existía en AbletonOSC estándar (no es parte de la extensión
+custom, confirmado en `clip.py` líneas 132-143) pero no estaba expuesto como tool MCP —
+listado como pendiente en la memoria del proyecto desde hace tiempo. Implementado en
+`clip_tools.py` siguiendo el mismo patrón de `get_device_params` (`send_osc` + leer
+`osc_responses` con `osc_lock`, slice `[2:]` para descartar el eco de track/clip index),
+agrupando la respuesta plana en notas de 5 campos (pitch, start_time, duration, velocity,
+mute). Schema agregado en `tool_definitions.py`. 41 tools totales, 41 handlers, sin
+huérfanos (verificado por consola). Probado en vivo contra el clip real del usuario:
+leyó correctamente las 9 notas que él mismo había escrito a mano, con sus valores reales
+de pitch/posición/duración/velocidad.
+
+**Nueva regla en CLAUDE.md (a pedido explícito del usuario):** verificar con
+`get_clip_notes` lo que un device realmente generó, en vez de asumir por el mensaje de
+confirmación de la tool o por la descripción del producto — y, en general, si durante una
+sesión se encuentra algo nuevo por adaptar o corregir (tool faltante, bug real, gap entre
+lo documentado y lo real), implementarlo directamente en vez de solo reportarlo.

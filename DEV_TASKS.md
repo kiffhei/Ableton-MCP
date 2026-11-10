@@ -17,7 +17,7 @@ Estado: funcional como herramienta, sin git, sin GitHub.
 
 - [x] DEV1 · Crear `.gitignore`
 - [x] DEV2 · Inicializar git y publicar en GitHub (`kiffhei/Ableton-MCP`)
-- [x] DEV3 · Actualizar README — capacidades reales (nota: README sigue en 19 tools; CLAUDE.md ya documenta 37 — falta otra pasada de actualización, fuera del alcance original de esta tarea)
+- [x] DEV3 · Actualizar README — capacidades reales (segunda pasada completada 2026-08-10: tabla del README reconstruida desde `src/tool_definitions.py` + los 6 módulos de handlers, ya no desde la documentación previa. 19 → 37 tools, verificado 37 tools ↔ 37 handlers sin huérfanos. Las 6 tools que llaman a endpoints OSC inexistentes en AbletonOSC estándar quedaron marcadas ⚠️ en vez de presentarse como funcionales — ver AUDIT.md)
 - [x] DEV4 · Limpiar CLAUDE.md para repo público (CLAUDE.internal.md separado, sin rutas/sesión en el público)
 - [x] DEV5 · Refactor: separar `server.py` en módulos (completado 2026-07-20 — `server.py` bajó de 1599 a 63 líneas; ver nota de alcance abajo)
 - [x] DEV6 · Agregar tests de music theory
@@ -418,22 +418,19 @@ Una vez validado: en el patch de Max (ver DESIGN_TASKS.md DT4), el objeto `node.
 > valor de este proyecto es invisible para quien no tiene Ableton Live instalado. No hay
 > modo mock ni demo headless, así que la evidencia visual no es un extra, es el entregable.
 
-- [ ] **VIT1 — Agregar `pytest>=8.0` a `requirements.txt`.** `DEV_TASKS.md:236` marca esta
-      tarea como completada, pero pytest no está en el archivo (verificado 2026-08-07). En
-      un clon limpio, el comando que el propio README documenta (`pytest tests/ -v`) truena
-      con `ModuleNotFoundError`. Un reclutador que clone el repo y siga las instrucciones
-      se topa con eso en el primer minuto. Las 27 pruebas de `test_music_theory.py` pasan
-      cuando se ejecutan con pytest ya instalado: el problema es de empaquetado, no de
-      lógica.
-- [ ] **VIT2 — Quitar las rutas personales de `m4l-bridge/`.** Hay `/Users/brianear/...`
-      hardcodeado en 4 archivos, contradiciendo al README que instruye usar `TU_USUARIO`.
-      Reemplazar por variable de entorno o placeholder.
-- [ ] **VIT3 — Nota al inicio del README: "requiere Ableton Live + AbletonOSC, no hay modo
-      demo".** Honestidad por adelantado: mejor decirlo tú a que alguien lo descubra tras
-      clonar.
+- [x] **VIT1 — Agregar `pytest>=8.0` a `requirements.txt`.** (2026-08-10) Agregado a
+      `requirements.txt`. Verificado con `pytest tests/ -v`: 27/27 pruebas pasan.
+- [x] **VIT2 — Quitar las rutas personales de `m4l-bridge/`.** (2026-08-10) Las 4 rutas
+      `/Users/brianear/...` (en `bridge-simple.js`, `bridge-persistent.js`, `test-bridge.js`,
+      `test-persistent.js`) ahora se leen de `ABLETON_MCP_CLAUDE_BIN` / `ABLETON_MCP_REPO`
+      con fallback a un placeholder evidente (`REPLACE_WITH_*`); documentado en el nuevo
+      `m4l-bridge/README.md` qué exportar y por qué.
+- [x] **VIT3 — Nota al inicio del README: "requiere Ableton Live + AbletonOSC, no hay modo
+      demo".** (2026-08-10) Agregada justo después del elevator pitch en `README.md`.
 - [ ] **VIT4 — Grabar un video o GIF corto del flujo funcionando.** Es la única forma de
       que alguien sin Ableton entienda qué hace. Sin esto, el proyecto es ilegible para el
-      95% de quien lo vea, por bien construido que esté.
+      95% de quien lo vea, por bien construido que esté. **Requiere a Brian grabando** —
+      no automatizable desde una sesión de Claude Code.
 
-**Estado para vitrina: PUBLICABLE con esfuerzo bajo (VIT1-VIT3), pero de bajo valor
-demostrativo hasta tener VIT4.**
+**Estado para vitrina: VIT1-VIT3 resueltos (2026-08-10). Pendiente solo VIT4, que requiere
+grabación humana.**

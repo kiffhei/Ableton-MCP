@@ -9,6 +9,10 @@
 > estado persistente de proyectos, y clonado de canciones reales vía Spotify.
 > Construido con el Model Context Protocol (MCP) de Anthropic.
 
+> **Requiere Ableton Live + AbletonOSC instalados y corriendo.** No hay modo
+> demo ni mock headless — sin Ableton abierto, el MCP server no tiene con
+> qué hablar y ninguna tool funciona.
+
 ---
 
 ## Arquitectura
@@ -103,64 +107,94 @@ Con Ableton abierto y AbletonOSC activo:
 
 ---
 
-## Herramientas disponibles (37)
+## Herramientas disponibles (40)
 
-### Plugins
+> Tabla derivada directamente del código (`src/tool_definitions.py` + los 7 módulos de
+> handlers) — verificado 2026-09-13: 40 esquemas de tool ↔ 40 funciones registradas en
+> `HANDLERS`, sin huérfanos en ningún sentido.
+>
+> Las filas marcadas **⚠️ requiere Remote Script extendido** llaman a endpoints OSC que
+> **no existen** en AbletonOSC estándar (`ideoforms/AbletonOSC`) — ver nota al pie y
+> `AUDIT.md`. No son aspiracionales ni están rotas por bug: fueron escritas asumiendo una
+> API que el Remote Script estándar no expone. Funcionan solo si extiendes AbletonOSC con
+> esos endpoints tú mismo.
+
+### Transporte y sesión (`transport_tools.py`)
 | Herramienta | Descripción |
 |---|---|
-| `build_plugin_registry` | **Escanea Ableton y guarda TODOS los plugins instalados** — ejecutar una vez |
-| `load_plugin_by_name` | Carga plugin por nombre: 'Maschine 2', 'Pigments', 'Reaktor 6', 'Orbit' |
-| `search_plugin_registry` | Busca plugins en el registry local |
+| `set_tempo` | Cambia el tempo (BPM) del proyecto en Ableton |
+| `play_pause` | Inicia o pausa la reproducción en Ableton (play/pause/stop) |
+| `get_session_info` | Obtiene información del proyecto actual: BPM, tracks, escenas |
+| `set_time_signature` | Cambia el compás del proyecto (ej: 4/4, 3/4, 6/8) |
+| `get_ableton_version` | Versión de Ableton Live y estado de la conexión OSC |
 
-### Track Control
+### Progresiones y clips (`clip_tools.py`)
 | Herramienta | Descripción |
 |---|---|
+| `add_chord_progression` | Genera una progresión de acordes MIDI según estilo, tonalidad y escala |
+| `add_midi_notes` | Agrega notas MIDI individuales a un clip — basslines, melodías, secuencias custom |
+| `set_clip_color` | Cambia el color de un clip en la Session View |
+| `trigger_clip` | Dispara un clip en un slot de la Session View |
+| `stop_clip` | Detiene un clip que está reproduciendo |
+| `trigger_scene` | Dispara una escena completa (fila), todos sus clips a la vez |
+
+### Devices y plugins (`device_tools.py`)
+| Herramienta | Descripción |
+|---|---|
+| `load_instrument` | Carga un instrumento nativo de Ableton (analog, wavetable, drum_rack, etc.) ⚠️ requiere Remote Script extendido |
+| `get_device_params` | Lee todos los parámetros de un device cargado en un track |
+| `set_device_param` | Cambia un parámetro específico de un device |
+| `set_device_params_bulk` | Cambia varios parámetros de un device en una sola llamada |
+| `get_track_devices` | Lista los devices/plugins cargados en un track, con índice y tipo |
+| `scan_plugins` | Escanea el browser de Ableton y lista plugins disponibles por URI ⚠️ requiere Remote Script extendido |
+| `load_plugin` | Carga un plugin (VST3/VST2/AU/M4L) por URI exacta del browser ⚠️ requiere Remote Script extendido |
+| `load_sample` | Carga un WAV/AIFF en el Simpler de un track ⚠️ requiere Remote Script extendido |
+
+### Control de tracks (`track_tools.py`)
+| Herramienta | Descripción |
+|---|---|
+| `create_midi_track` | Crea un nuevo track MIDI |
+| `create_audio_track` | Crea un nuevo track de audio |
 | `set_track_volume` | Volumen de track (0.0–1.0, 0.85 = 0 dB) |
 | `set_track_pan` | Paneo (-1.0 izquierda, 0.0 centro, 1.0 derecha) |
-| `set_track_mute` | Mutear/desmutear track |
-| `set_track_solo` | Solo/unsolo track |
-| `arm_track` | Armar track para grabación |
-| `set_track_name` | Renombrar track |
-| `set_track_color` | Color de track por RGB entero |
-| `get_track_info` | Info completa: vol, pan, mute, solo, arm, devices |
-| `set_track_send` | Nivel de envío a return track |
-| `create_audio_track` | Crea track de audio |
+| `set_track_mute` | Silencia o activa un track |
+| `set_track_solo` | Activa o desactiva el solo de un track |
+| `arm_track` | Arma o desarma un track para grabación |
+| `set_track_name` | Renombra un track |
+| `set_track_color` | Cambia el color de un track por RGB entero |
+| `get_track_info` | Info completa de un track: nombre, vol, pan, mute, solo, arm, devices |
+| `set_track_send` | Ajusta el nivel de envío de un track a un return track |
 
-### Clip & Scene Control
+### Estado de proyecto (`project_tools.py`)
 | Herramienta | Descripción |
 |---|---|
-| `trigger_clip` | Dispara un clip en Session View |
-| `stop_clip` | Detiene un clip |
-| `trigger_scene` | Dispara una escena completa (fila) |
+| `new_project` | Crea un nuevo proyecto con carpeta de contexto (BPM, tonalidad, escala, género) |
+| `load_project` | Carga el contexto de un proyecto existente al retomar una sesión |
+| `save_project_state` | Guarda el estado actual del proyecto (tracks, devices, notas) |
+| `list_projects` | Lista todos los proyectos guardados |
 
-### Session
+### Registry de plugins (`registry_tools.py`)
 | Herramienta | Descripción |
 |---|---|
-| `set_time_signature` | Cambia el compás (ej: 4/4, 3/4, 6/8) |
-| `get_ableton_version` | Versión de Live + estado del registry |
+| `build_plugin_registry` | Escanea el browser y construye un registro persistente de plugins instalados ⚠️ requiere Remote Script extendido |
+| `load_plugin_by_name` | Carga un plugin por nombre en lenguaje natural ('Serum', 'Pigments'...) ⚠️ requiere Remote Script extendido |
+| `search_plugin_registry` | Busca plugins en el registry local por nombre parcial |
 
-### Originales
+### Herramientas gratuitas de terceros (`free_tools_handlers.py`)
 | Herramienta | Descripción |
 |---|---|
-| `add_chord_progression` | Genera progresiones en cualquier tonalidad y escala |
-| `add_midi_notes` | Agrega notas MIDI individuales con control total |
-| `create_midi_track` | Crea un nuevo track MIDI |
-| `set_tempo` | Cambia el BPM del proyecto |
-| `play_pause` | Controla reproducción (play/pause/stop) |
-| `get_session_info` | Info del proyecto: tracks, escenas, BPM |
-| `set_clip_color` | Colorea clips por índice RGB |
-| `load_instrument` | Carga instrumento nativo de Ableton |
-| `load_plugin` | Carga plugin por URI exacta |
-| `load_sample` | Carga WAV/AIFF en Simpler |
-| `get_device_params` | Lee parámetros de un device/plugin |
-| `set_device_param` | Modifica un parámetro específico |
-| `set_device_params_bulk` | Modifica múltiples parámetros a la vez |
-| `get_track_devices` | Lista devices de un track |
-| `scan_plugins` | Escanea browser de Ableton |
-| `new_project` | Crea proyecto con estado persistente |
-| `load_project` | Carga proyecto existente |
-| `save_project_state` | Guarda estado del proyecto |
-| `list_projects` | Lista proyectos guardados |
+| `suggest_free_tool` | Busca en `tools_knowledge_base.json` una herramienta gratuita ya descargada que resuelva la tarea pedida, antes de construirla desde cero vía OSC |
+
+---
+
+**⚠️ Sobre las 6 tools marcadas "requiere Remote Script extendido":** `scan_plugins`,
+`build_plugin_registry`, `load_instrument`, `load_plugin`, `load_plugin_by_name` y
+`load_sample` llaman a los endpoints OSC `/live/browser/scan`, `/live/track/load_device`
+y `/live/track/load_sample`, que **no existen** en AbletonOSC estándar
+(`ideoforms/AbletonOSC`) — confirmado contra su código fuente. Cargar dispositivos o
+samples desde el Browser de Live vía OSC requiere extender el Remote Script con
+endpoints custom; no es parte de la API estándar. Contra una instalación de AbletonOSC
+sin modificar, estas 6 tools no funcionan. Detalle completo en `AUDIT.md`.
 
 ---
 
@@ -174,6 +208,56 @@ drum_and_bass, ambient, synthwave, afrobeats, amapiano, reggaeton, y más.
 **Cualquier tonalidad y escala:**
 cualquier nota (C, F#, Bb...) × cualquier escala (mayor, menor, dórica,
 frigia, pentatónica, blues, doble armónica...).
+
+---
+
+## Base de conocimiento de herramientas gratuitas
+
+`tools_knowledge_base.json` (raíz del proyecto) registra herramientas gratuitas de
+terceros — Max for Live devices, Live Extensions, plugins VST/AU — ya descargadas en
+`tools/<nombre>/`, cada una con su propio `README.md` (qué hace, requisitos, cómo se
+instala/invoca).
+
+**Regla del flujo de creación de canciones: antes de construir un recurso musical
+desde cero vía OSC, consultar primero `suggest_free_tool`.** Si una herramienta
+gratuita ya resuelve la tarea, se recomienda esa (con estado de instalación e
+instrucciones) en vez de programar la solución desde cero. Ejemplos:
+
+| Petición del usuario | Herramienta sugerida |
+|---|---|
+| "Dame un patrón rítmico complejo" | Styled Rhythm Generator (Lite) |
+| "Separa este loop de batería en stems" | DrumSep |
+| "Quiero variación melódica automática" | Call & Response Generator |
+| "Necesito cortar este loop en slices para tocarlo en vivo" | MLR Live |
+| "Dale textura/saturación a esta pista" | Roar Preset Pack |
+| "Trocea este sample de forma granular" | Granular Slicer |
+| "Quiero un efecto de freeze/glitch" | Philodendron |
+
+Si `suggest_free_tool` no encuentra nada relevante, seguir con el flujo normal
+(`add_chord_progression`, `add_midi_notes`, `generate_chord_progression`, etc.).
+
+> **Nota — Scintillate:** el CDN de KVR (`static.kvraudio.com`) sirve el archivo detrás
+> de un challenge de Cloudflare que solo un navegador resolviendo JS puede pasar; ni
+> `curl` ni el sandbox de este proyecto pueden bajarlo automáticamente. Está registrado
+> en la base de conocimiento (por si alguien más automatiza la descarga después) pero
+> **el `.dmg` no está en `tools/scintillate/`** — bajar manualmente desde
+> [kvraudio.com/product/scintillate-by-sweet-audio/downloads](https://www.kvraudio.com/product/scintillate-by-sweet-audio/downloads)
+> y colocarlo ahí.
+
+Herramientas registradas actualmente (todas verificadas como gratuitas al momento de
+agregarlas — Gumroad/sitios de terceros cambian precios sin aviso, re-verificar antes
+de asumir que algo sigue gratis):
+
+| Herramienta | Categoría | Fuente |
+|---|---|---|
+| Call & Response Generator | sequencer | Side Brain (sidebrain.gumroad.com) |
+| DrumSep | audio-tool | Side Brain |
+| MLR Live | sequencer | Side Brain |
+| Styled Rhythm Generator (Lite) | rhythm-generator | Side Brain |
+| Roar Preset Pack (Free) | audio-tool | Side Brain |
+| Granular Slicer | audio-tool | Side Brain |
+| Philodendron | audio-tool | LNDF (lndf.fr) — no relacionado con Side Brain |
+| Scintillate | audio-tool | Sweet Audio (kvraudio.com) — no relacionado con Side Brain, **descarga pendiente** (ver nota abajo) |
 
 ---
 
