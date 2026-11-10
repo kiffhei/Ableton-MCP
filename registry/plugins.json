@@ -24,8 +24,8 @@
     "vst3": {
       "name": "VST3",
       "uri": "query:Plugins#VST3",
-      "category": "VST",
-      "type": "VST",
+      "category": "VST3",
+      "type": "VST3",
       "display_name": "VST3"
     },
     "audiomodern": {
@@ -55,8 +55,78 @@
       "category": "AU",
       "type": "AU",
       "display_name": "XLN Audio"
+    },
+    "vst3s": {
+      "name": "VST3s",
+      "uri": "query:UserLibrary#Defaults:Plug-In%20Configurations:VST3s",
+      "category": "VST3",
+      "type": "VST3",
+      "display_name": "VST3s"
+    },
+    "max_audio_effect": {
+      "name": "Max Audio Effect",
+      "uri": "query:UserLibrary#Presets:Audio%20Effects:Max%20Audio%20Effect",
+      "category": "Max",
+      "type": "Max",
+      "display_name": "Max Audio Effect"
+    },
+    "max_instrument": {
+      "name": "Max Instrument",
+      "uri": "query:UserLibrary#Presets:Instruments:Max%20Instrument",
+      "category": "Max",
+      "type": "Max",
+      "display_name": "Max Instrument"
+    },
+    "max_midi_effect": {
+      "name": "Max MIDI Effect",
+      "uri": "query:UserLibrary#Presets:MIDI%20Effects:Max%20MIDI%20Effect",
+      "category": "Max",
+      "type": "Max",
+      "display_name": "Max MIDI Effect"
+    },
+    "orb_plugins": {
+      "name": "Orb Plugins",
+      "uri": "query:Plugins#VST3:Orb%20Plugins",
+      "category": "plugins",
+      "type": "plugins",
+      "display_name": "Orb Plugins"
+    },
+    "arturia": {
+      "name": "Arturia",
+      "uri": "query:UserLibrary#Defaults:Plug-In%20Configurations:VST3s:Arturia",
+      "category": "Arturia",
+      "type": "Arturia",
+      "display_name": "Arturia"
+    },
+    "analog_lab_v": {
+      "name": "Analog Lab V",
+      "uri": "query:UserLibrary#Defaults:Plug-In%20Configurations:VST3s:Arturia:Analog%20Lab%20V",
+      "category": "Analog Lab",
+      "type": "Analog Lab",
+      "display_name": "Analog Lab V"
+    },
+    "maschine_2": {
+      "name": "Maschine 2",
+      "uri": "query:Plugins#VST3:Native%20Instruments:Maschine%202",
+      "category": "Native Instruments",
+      "type": "VST3",
+      "display_name": "Maschine 2"
+    },
+    "massive": {
+      "name": "Massive",
+      "uri": "query:Plugins#VST3:Native%20Instruments:Massive",
+      "category": "Native Instruments",
+      "type": "VST3",
+      "display_name": "Massive"
+    },
+    "komplete_kontrol": {
+      "name": "Komplete Kontrol",
+      "uri": "query:Plugins#VST3:Native%20Instruments:Komplete%20Kontrol",
+      "category": "Native Instruments",
+      "type": "VST3",
+      "display_name": "Komplete Kontrol"
     }
   },
   "favorites": {},
-  "last_scan": "2026-07-22T19:36:39.840105"
+  "last_scan": "2026-10-27T12:22:56.117563"
 }

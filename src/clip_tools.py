@@ -8,7 +8,7 @@ import time
 from mcp import types
 
 from music_theory import build_progression, GENRE_PATTERNS
-from osc_client import send_osc
+from osc_client import send_osc, osc_lock, osc_responses
 from progression_generator import generate_progression, generate_song_structure, GeneroNoEncontradoError
 
 
@@ -244,6 +244,47 @@ def stop_clip(arguments: dict) -> list[types.TextContent]:
     )]
 
 
+def get_clip_notes(arguments: dict) -> list[types.TextContent]:
+    track_idx = arguments["track_index"]
+    scene_idx = arguments["scene_index"]
+
+    send_osc("/live/clip/get/notes", track_idx, scene_idx)
+    time.sleep(0.4)
+
+    with osc_lock:
+        raw = list(osc_responses.get("/live/clip/get/notes", ()))[2:]
+
+    if not raw:
+        return [types.TextContent(
+            type="text",
+            text=(
+                f"⚠️ Sin notas en Track {track_idx + 1}, Escena {scene_idx + 1}.\n"
+                "El clip no existe, está vacío, o no es un clip MIDI."
+            ),
+        )]
+
+    notes = []
+    for i in range(0, len(raw), 5):
+        pitch, start_time, duration, velocity, mute = raw[i:i + 5]
+        notes.append({
+            "pitch": int(pitch),
+            "position": float(start_time),
+            "duration": float(duration),
+            "velocity": int(velocity),
+            "muted": bool(mute),
+        })
+
+    lines = [f"🎵 {len(notes)} notas — Track {track_idx + 1}, Escena {scene_idx + 1}:"]
+    for n in notes:
+        mute_flag = " (muted)" if n["muted"] else ""
+        lines.append(
+            f"  pitch={n['pitch']:>3} pos={n['position']:.2f} dur={n['duration']:.2f} "
+            f"vel={n['velocity']}{mute_flag}"
+        )
+
+    return [types.TextContent(type="text", text="\n".join(lines))]
+
+
 def trigger_scene(arguments: dict) -> list[types.TextContent]:
     scene_idx = arguments["scene_index"]
     send_osc("/live/song/trigger_scene", scene_idx)
@@ -259,6 +300,7 @@ HANDLERS = {
     "generate_chord_progression": generate_chord_progression,
     "generate_song_structure": generate_song_structure_tool,
     "set_clip_color": set_clip_color,
+    "get_clip_notes": get_clip_notes,
     "trigger_clip": trigger_clip,
     "stop_clip": stop_clip,
     "trigger_scene": trigger_scene,

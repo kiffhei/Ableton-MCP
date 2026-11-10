@@ -59,8 +59,15 @@ def _parse_browser_items(raw: tuple) -> list[dict]:
     """
     Parsea la respuesta OSC del browser de Ableton.
     AbletonOSC devuelve los items como args planos en grupos de 4:
-    (name, uri, is_loadable, is_folder, name, uri, ...)
+    (name, uri, is_folder, is_loadable, name, uri, ...)
     Con fallback a pares (name, uri) para versiones antiguas.
+
+    Verificado en caliente 2026-11-03 contra Ableton real (ver
+    [[conventions-learned]] en la memoria del proyecto): un folder conocido
+    ("Native Instruments") devuelve (1, 0) y un plugin cargable conocido
+    ("Maschine 2") devuelve (0, 1) en esas dos posiciones — el orden
+    anterior (loadable, folder) tenía los campos invertidos y descartaba
+    plugins reales como no cargables.
     """
     items: list[dict] = []
     if not raw:
@@ -70,8 +77,8 @@ def _parse_browser_items(raw: tuple) -> list[dict]:
             items.append({
                 "name":     str(raw[i]),
                 "uri":      str(raw[i + 1]),
-                "loadable": bool(raw[i + 2]),
-                "folder":   bool(raw[i + 3]),
+                "folder":   bool(raw[i + 2]),
+                "loadable": bool(raw[i + 3]),
             })
     elif len(raw) % 2 == 0:
         for i in range(0, len(raw), 2):

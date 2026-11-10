@@ -71,9 +71,16 @@ def load_instrument(arguments: dict) -> list[types.TextContent]:
             text=f"❌ Instrumento '{instrument}' no encontrado.\nDisponibles: {available}",
         )]
 
+    # El Remote Script matchea por substring literal contra el nombre real
+    # del item en el browser ("Drum Rack", con espacio) -- el alias interno
+    # usa guion bajo ("drum_rack") para la key de INSTRUMENT_PATHS, pero eso
+    # nunca matchea si se manda tal cual por OSC. Convertir de vuelta a espacio
+    # para la búsqueda real.
+    search_term = instrument.replace("_", " ")
+
     send_osc("/live/view/set/selected_track", track_idx)
     time.sleep(0.3)
-    send_osc("/live/track/load_device", track_idx, instrument)
+    send_osc("/live/track/load_device", track_idx, search_term)
     time.sleep(1.0)
 
     return [types.TextContent(

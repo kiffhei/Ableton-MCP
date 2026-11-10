@@ -95,9 +95,15 @@ def load_plugin_by_name(arguments: dict) -> list[types.TextContent]:
     plugin_uri = result["uri"]
     display    = result.get("display_name", plugin_name)
 
+    # El handler real de AbletonOSC (track_load_device en track.py) NO toma la URI
+    # del browser — hace un substring match por nombre (_find_item_containing)
+    # sobre item.name.lower(). Pasarle la URI "query:Plugins#..." nunca machea
+    # nada y el load queda silencioso (ver [[incidents-bugs]], confirmado en
+    # caliente 2026-11-03: 13/13 tracks con num_devices=0 hasta cambiar a pasar
+    # el nombre plano).
     send_osc("/live/view/set/selected_track", track_idx)
     time.sleep(0.3)
-    send_osc("/live/track/load_device", track_idx, plugin_uri)
+    send_osc("/live/track/load_device", track_idx, display)
     time.sleep(1.5)
 
     return [types.TextContent(

@@ -10,12 +10,29 @@ from mcp import types
 from osc_client import send_osc, osc_lock, osc_responses
 
 
+def _resolve_new_track_index(requested_idx: int) -> int:
+    """create_midi_track/create_audio_track con track_index=-1 crean AL FINAL,
+    pero el OSC de creación no devuelve el índice real del track nuevo. Si se
+    pidió -1, hay que preguntarle a Live cuántos tracks hay ahora y asumir que
+    el nuevo es el último (num_tracks - 1) para poder renombrarlo después."""
+    if requested_idx != -1:
+        return requested_idx
+    send_osc("/live/song/get/num_tracks")
+    time.sleep(0.3)
+    with osc_lock:
+        num_tracks = osc_responses.get("/live/song/get/num_tracks", (None,))[0]
+    return (num_tracks - 1) if isinstance(num_tracks, int) else requested_idx
+
+
 def create_midi_track(arguments: dict) -> list[types.TextContent]:
     idx = arguments.get("track_index", -1)
     track_name = arguments.get("name", "MIDI Track")
     send_osc("/live/song/create_midi_track", idx)
     time.sleep(0.3)
-    return [types.TextContent(type="text", text=f"✅ Track MIDI '{track_name}' creado en posición {idx}")]
+    real_idx = _resolve_new_track_index(idx)
+    send_osc("/live/track/set/name", real_idx, track_name)
+    time.sleep(0.2)
+    return [types.TextContent(type="text", text=f"✅ Track MIDI '{track_name}' creado en posición {real_idx}")]
 
 
 def create_audio_track(arguments: dict) -> list[types.TextContent]:
@@ -23,9 +40,12 @@ def create_audio_track(arguments: dict) -> list[types.TextContent]:
     track_name = arguments.get("name", "Audio Track")
     send_osc("/live/song/create_audio_track", idx)
     time.sleep(0.3)
+    real_idx = _resolve_new_track_index(idx)
+    send_osc("/live/track/set/name", real_idx, track_name)
+    time.sleep(0.2)
     return [types.TextContent(
         type="text",
-        text=f"✅ Track de audio '{track_name}' creado en posición {idx}",
+        text=f"✅ Track de audio '{track_name}' creado en posición {real_idx}",
     )]
 
 
