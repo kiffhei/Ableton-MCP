@@ -1,0 +1,143 @@
+[
+  {
+    "name": "Call & Response Generator",
+    "category": "sequencer",
+    "description": "Genera dos frases MIDI conectadas (call y response) con 38 estrategias de relación entre ambas. Ideal para basslines acid, secuencias techno, hooks de house y riffs melódicos.",
+    "use_cases": [
+      "generar una melodía o bassline con variación automática",
+      "crear una frase MIDI que responda o dialogue con otra",
+      "generar un acid bassline",
+      "generar una secuencia techno o un hook de house",
+      "variación melódica automática sin escribir MIDI a mano"
+    ],
+    "install_path": "tools/call-response-generator/C&R Generator.amxd",
+    "requires": "Ableton Live 12 Suite (o Standard + addon Max for Live), Max 9+",
+    "source_url": "https://sidebrain.gumroad.com/l/zhgshl",
+    "creator": "Side Brain (motor: Nordl3, MIT license)",
+    "license": "MIT",
+    "resource_type": "Max for Live MIDI Effect",
+    "install_instructions": "Colocar el .amxd en un track MIDI antes del instrumento. New Pair para generar, Write Clip para escribir el resultado."
+  },
+  {
+    "name": "DrumSep",
+    "category": "audio-tool",
+    "description": "Separador local de stems de batería (kick, snare, hihat, etc.) integrado como Live Extension, sin salir de Ableton.",
+    "use_cases": [
+      "separar un loop de batería en stems",
+      "aislar el kick, snare o hihat de una pista de audio",
+      "extraer elementos de percusión de una grabación o sample"
+    ],
+    "install_path": "tools/drumsep/Side Brain - DrumSep v1.1.11.ablx",
+    "requires": "Ableton Suite 12.4.5 Beta o superior",
+    "source_url": "https://sidebrain.gumroad.com/l/kpefx",
+    "creator": "Side Brain",
+    "license": "Freeware",
+    "resource_type": "Live Extension",
+    "install_instructions": "Live Settings → Extensions → Choose File → seleccionar el .ablx. Reiniciar Live. Right-click sobre el clip/track de audio para invocarlo."
+  },
+  {
+    "name": "MLR Live",
+    "category": "sequencer",
+    "description": "Recrea el live-looping estilo Monome 'MLR': corta un clip de audio en slices disparables en tiempo real como instrumento, vía Follow Actions.",
+    "use_cases": [
+      "cortar un clip de audio en slices para tocarlas en vivo",
+      "hacer live looping o beat-slicing estilo monome/mlr",
+      "convertir un loop en un instrumento performable por pads o teclado"
+    ],
+    "install_path": "tools/mlr-live/MLR Live.amxd",
+    "requires": "Ableton Live Suite (no Standard/Intro/Lite), Max for Live",
+    "source_url": "https://sidebrain.gumroad.com/l/pxyxu",
+    "creator": "Side Brain",
+    "license": "Freeware (versión Free del device)",
+    "resource_type": "Max for Live Audio Effect",
+    "install_instructions": "Colocar en un track de audio con un clip cargado. Slice Clip, ajustar Clip Q, CMD+SHIFT+ENTER para Follow Actions, mapear slices con CMD+M."
+  },
+  {
+    "name": "Styled Rhythm Generator (Lite)",
+    "category": "rhythm-generator",
+    "description": "Genera patrones rítmicos de batería por estilo directamente sobre un track/clip de audio vía right-click. Versión Lite (existe Pro de paga con más estilos y features).",
+    "use_cases": [
+      "generar un patrón rítmico complejo",
+      "crear un groove o base rítmica de batería rápido",
+      "generar variaciones de ritmo por género sin programar cada nota"
+    ],
+    "install_path": "tools/styled-rhythm-generator/Side Brain - Styled Rhythm Generator Lite.ablx",
+    "requires": "Ableton Suite 12.4.5 Beta o superior",
+    "source_url": "https://sidebrain.gumroad.com/l/vnwbvc",
+    "creator": "Side Brain",
+    "license": "Freeware (Lite)",
+    "resource_type": "Live Extension",
+    "install_instructions": "Live Settings → Extensions → Choose File. Reiniciar Live. Right-click sobre título de track de audio, clip slot vacío, o timeline de Arrangement."
+  },
+  {
+    "name": "Roar Preset Pack (Free)",
+    "category": "audio-tool",
+    "description": "17 presets gratuitos para el dispositivo nativo Roar (Ableton 12): saturación, distorsión, color tonal, modulación, destrucción de tono. Para batería, teclas, bajo y leads.",
+    "use_cases": [
+      "necesitar un preset rápido de saturación o distorsión",
+      "dar textura o calidez analógica a un sonido",
+      "sound design con Roar sin partir de cero"
+    ],
+    "install_path": "tools/roar-preset-pack/",
+    "requires": "Ableton Suite 12.2 o superior",
+    "source_url": "https://sidebrain.gumroad.com/l/opefxk",
+    "creator": "Side Brain",
+    "license": "Freeware",
+    "resource_type": "Preset pack (Roar)",
+    "install_instructions": "Copiar los .adv a User Library/Presets/Audio Effects/Roar."
+  },
+  {
+    "name": "Granular Slicer",
+    "category": "audio-tool",
+    "description": "Preset que convierte el dispositivo nativo Granulator III (Live 12) en un slicer granular, para trocear samples de forma granular en vez de con Simpler/Slicing clásico.",
+    "use_cases": [
+      "trocear o slicear un sample de forma granular",
+      "granular slicing de loops",
+      "efecto de textura granular sobre un loop"
+    ],
+    "install_path": "tools/granular-slicer/Granular Slicing.adg",
+    "requires": "Ableton Suite 12+ con Granulator III",
+    "source_url": "https://sidebrain.gumroad.com/l/nrjfi",
+    "creator": "Side Brain",
+    "license": "Freeware",
+    "resource_type": "Preset de instrumento (Granulator III)",
+    "install_instructions": "Cargar Granulator III en un track, luego cargar el .adg sobre el device."
+  },
+  {
+    "name": "Philodendron",
+    "category": "audio-tool",
+    "description": "Plugin de efecto (VST3/AU) basado en ringbuffers: hasta 4 cabezas de lectura simultáneas sobre un buffer que se reescribe en tiempo real, con freeze para explorar el pasado. Genera repeticiones, freezes, cambios de velocidad y feedback/glitch inestable.",
+    "use_cases": [
+      "efecto de glitch, freeze o granular sobre una señal de audio",
+      "texturas experimentales de feedback o buffer looping",
+      "efecto tipo stutter o freeze en un send o insert"
+    ],
+    "install_path": "tools/philodendron/Philodendron_1.0.2_MacOs.pkg",
+    "requires": "macOS, DAW compatible con VST3/AU (formatos exactos no verificados de forma independiente)",
+    "source_url": "https://lndf.fr/NOI/Philodendron.html",
+    "creator": "LNDF (Le Nom Des Fleurs) — no relacionado con Side Brain",
+    "license": "GPL-3.0 (código fuente: github.com/LeNomDesFleurs/PHILODENDRON_JUCE)",
+    "resource_type": "VST3/AU plugin (JUCE)",
+    "install_instructions": "Requiere ejecutar el instalador .pkg manualmente (el MCP no lo instala solo): doble-click en Finder o `installer -pkg ... -target /`. Luego re-escanear plugins en Ableton.",
+    "requires_manual_install": true
+  },
+  {
+    "name": "Scintillate",
+    "category": "audio-tool",
+    "description": "Spectral Reverb Sparkle Engine: genera destellos dentro del espectro de una reverb convencional, creando texturas brillantes, paredes de sonido fluctuantes o efectos reversos psicodélicos. Ganador del KVR Developer Challenge 2026.",
+    "use_cases": [
+      "reverb espectral o efecto de destellos sobre un sonido",
+      "textura brillante o shimmer sobre un instrumento",
+      "efecto de gate espectral o reverb no convencional"
+    ],
+    "install_path": "tools/scintillate/scintillate-1-0-1-macos-universal.dmg",
+    "requires": "macOS (Universal) o Windows, DAW compatible con VST3/AU/CLAP",
+    "source_url": "https://www.kvraudio.com/product/scintillate-by-sweet-audio/downloads",
+    "creator": "Sweet Audio (DSP: Signalsmith Audio) — no relacionado con Side Brain",
+    "license": "Gratuito, sin código fuente publicado",
+    "resource_type": "VST3/AU/CLAP plugin",
+    "install_instructions": "Descarga manual requerida (CDN detrás de Cloudflare challenge, no automatizable): bajar el .dmg de static.kvraudio.com vía navegador, colocarlo en tools/scintillate/, instalar, y re-escanear plugins en Ableton.",
+    "requires_manual_install": true,
+    "requires_manual_download": true
+  }
+]

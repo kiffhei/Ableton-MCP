@@ -775,6 +775,24 @@ TOOL_DEFINITIONS: list[types.Tool] = [
         },
     ),
     types.Tool(
+        name="get_clip_notes",
+        description=(
+            "Lee las notas MIDI de un clip existente en un slot de la Session View: "
+            "pitch, posición, duración, velocidad y mute de cada nota. "
+            "Útil para verificar qué generó realmente un device (nativo o Max for Live) "
+            "en vez de asumir por el mensaje de confirmación de la tool que lo disparó. "
+            "Si el slot no tiene clip, no es un clip MIDI, o está vacío, lo reporta explícitamente."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "track_index": {"type": "integer", "description": "Índice del track (0-based)"},
+                "scene_index": {"type": "integer", "description": "Índice de la escena/fila (0-based)"},
+            },
+            "required": ["track_index", "scene_index"],
+        },
+    ),
+    types.Tool(
         name="trigger_scene",
         description=(
             "Dispara una escena completa (fila) en la Session View. "
@@ -819,5 +837,30 @@ TOOL_DEFINITIONS: list[types.Tool] = [
             "Útil para verificar que AbletonOSC está activo y para saber qué funciones están disponibles."
         ),
         inputSchema={"type": "object", "properties": {}},
+    ),
+
+    # ── Herramientas gratuitas de terceros ────────────────────
+    types.Tool(
+        name="suggest_free_tool",
+        description=(
+            "Busca en la base de conocimiento (tools_knowledge_base.json) herramientas "
+            "gratuitas de terceros (Max for Live devices, Live Extensions, plugins) que "
+            "ya resuelvan la tarea pedida, antes de construirla desde cero vía OSC. "
+            "Úsala primero cuando el usuario pida un recurso musical como un patrón "
+            "rítmico complejo, separar un loop de batería en stems, variación melódica "
+            "automática, live-looping por slices, o efectos de granular/glitch. "
+            "Devuelve la(s) herramienta(s) recomendada(s), si ya está(n) descargada(s) "
+            "localmente, y cómo instalarla(s) si no."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_description": {
+                    "type": "string",
+                    "description": "Descripción en lenguaje natural de lo que el usuario quiere lograr. Ej: 'separar un loop de batería en stems', 'generar un patrón rítmico complejo'",
+                },
+            },
+            "required": ["task_description"],
+        },
     ),
 ]
