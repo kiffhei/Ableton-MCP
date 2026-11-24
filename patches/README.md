@@ -162,3 +162,32 @@ Para comprobar que cargó, un handler nuevo debe dejar de responder `None`:
 # devuelve "unsupported" en un device sin sidechain, un nombre de pista si lo tiene
 /live/device/get/input_routing_type <track> <device>
 ```
+
+## abletonosc-ableton-mcp-completo.patch  ← usar este para reinstalar
+
+**Qué es:** todos nuestros cambios sobre AbletonOSC en un solo parche, generado contra
+**upstream limpio** (`ideoforms/AbletonOSC`, rama `master`).
+
+**Por qué existe.** Los cuatro parches individuales de arriba se generaron cada uno
+contra el estado local del momento, así que **dependen del orden y no aplican sobre
+upstream**. Comprobado el 2026-11-24 con `git apply --check` sobre un clon limpio: solo
+el de sidechain pasa; los tres de `track.py` fallan. Sirven para documentar *por qué*
+existe cada cambio; para **reinstalar**, usar este.
+
+**Verificado:** aplica limpio sobre upstream y deja `device.py` y `track.py` idénticos
+byte a byte a la copia instalada.
+
+```bash
+git clone https://github.com/ideoforms/AbletonOSC.git
+cd AbletonOSC && git apply ~/proyectos/ableton-mcp/patches/abletonosc-ableton-mcp-completo.patch
+```
+
+**Para regenerarlo** (hay un clon de upstream en `~/proyectos/_referencias-ableton/AbletonOSC`):
+
+```bash
+OSC="$HOME/Music/Ableton/User Library/Remote Scripts/AbletonOSC/abletonosc"
+REF="$HOME/proyectos/_referencias-ableton/AbletonOSC"
+cd "$REF" && git checkout -- abletonosc/
+for m in device track; do diff -u "$REF/abletonosc/$m.py" "$OSC/$m.py"; done \
+  > ~/proyectos/ableton-mcp/patches/abletonosc-ableton-mcp-completo.patch
+```

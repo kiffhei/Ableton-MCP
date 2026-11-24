@@ -1,0 +1,324 @@
+--- a/abletonosc/device.py	2026-11-24 15:26:10.000000000 -0600
++++ b/abletonosc/device.py	2026-11-24 15:22:20.000000000 -0600
+@@ -140,3 +140,61 @@
+         self.osc_server.add_handler("/live/device/get/parameter/name", create_device_callback(device_get_parameter_name))
+         self.osc_server.add_handler("/live/device/start_listen/parameter/value", create_device_callback(device_get_parameter_value_listener, include_ids = True))
+         self.osc_server.add_handler("/live/device/stop_listen/parameter/value", create_device_callback(device_get_parameter_remove_value_listener, include_ids = True))
++
++        #--------------------------------------------------------------------------------
++        # Device: Sidechain (audio input) routing.
++        # Only Live.CompressorDevice exposes this (Live 11+); it mirrors the Track
++        # routing API. Glue Compressor and Gate do NOT have it, so every handler here
++        # reports plainly when the device lacks the attribute instead of raising.
++        #--------------------------------------------------------------------------------
++        def _has_routing(device):
++            return hasattr(device, "available_input_routing_types")
++
++        def device_get_available_input_routing_types(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return tuple(t.display_name for t in device.available_input_routing_types)
++
++        def device_get_available_input_routing_channels(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return tuple(c.display_name for c in device.available_input_routing_channels)
++
++        def device_get_input_routing_type(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return (device.input_routing_type.display_name,)
++
++        def device_set_input_routing_type(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                self.logger.warning("device sidechain: %s has no input routing" % device.name)
++                return
++            wanted = str(params[0])
++            for routing_type in device.available_input_routing_types:
++                if routing_type.display_name == wanted:
++                    device.input_routing_type = routing_type
++                    return
++            self.logger.warning("Couldn't find device input routing type: %s" % wanted)
++
++        def device_get_input_routing_channel(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return (device.input_routing_channel.display_name,)
++
++        def device_set_input_routing_channel(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                self.logger.warning("device sidechain: %s has no input routing" % device.name)
++                return
++            wanted = str(params[0])
++            for channel in device.available_input_routing_channels:
++                if channel.display_name == wanted:
++                    device.input_routing_channel = channel
++                    return
++            self.logger.warning("Couldn't find device input routing channel: %s" % wanted)
++
++        self.osc_server.add_handler("/live/device/get/available_input_routing_types", create_device_callback(device_get_available_input_routing_types))
++        self.osc_server.add_handler("/live/device/get/available_input_routing_channels", create_device_callback(device_get_available_input_routing_channels))
++        self.osc_server.add_handler("/live/device/get/input_routing_type", create_device_callback(device_get_input_routing_type))
++        self.osc_server.add_handler("/live/device/set/input_routing_type", create_device_callback(device_set_input_routing_type))
++        self.osc_server.add_handler("/live/device/get/input_routing_channel", create_device_callback(device_get_input_routing_channel))
++        self.osc_server.add_handler("/live/device/set/input_routing_channel", create_device_callback(device_set_input_routing_channel))
+--- a/abletonosc/track.py	2026-11-24 15:26:10.000000000 -0600
++++ b/abletonosc/track.py	2026-11-24 15:22:45.000000000 -0600
+@@ -162,6 +162,257 @@
+         self.osc_server.add_handler("/live/track/get/devices/class_name", create_track_callback(track_get_device_class_names))
+         self.osc_server.add_handler("/live/track/get/devices/can_have_chains", create_track_callback(track_get_device_can_have_chains))
+ 
++        def _search_browser(root_items, query, results, max_results=30):
++            """Recursive browser search. Returns list of (name, uri, is_folder)."""
++            if len(results) >= max_results:
++                return
++            for item in root_items:
++                if len(results) >= max_results:
++                    return
++                try:
++                    name = item.name or ""
++                    uri = item.uri if hasattr(item, 'uri') else ""
++                    is_folder = item.is_folder if hasattr(item, 'is_folder') else False
++                    is_loadable = item.is_loadable if hasattr(item, 'is_loadable') else False
++                    if query in name.lower():
++                        results.append((name, uri, is_folder, is_loadable))
++                    if is_folder:
++                        try:
++                            _search_browser(item.children, query, results, max_results)
++                        except Exception:
++                            pass
++                except Exception:
++                    pass
++
++        def _find_item_by_name(root_items, name_lower, categories=None, depth=0):
++            """Exact name match, searching given category roots."""
++            if depth > 4:
++                return None
++            for item in root_items:
++                try:
++                    if item.name.lower() == name_lower:
++                        return item
++                    if item.is_folder and depth < 4:
++                        found = _find_item_by_name(item.children, name_lower, depth=depth+1)
++                        if found is not None:
++                            return found
++                except Exception:
++                    pass
++            return None
++
++        def _collect_matches(root_items, query_lower, out, depth=0):
++            """Every loadable item whose name contains the query."""
++            if depth > 4:
++                return
++            for item in root_items:
++                try:
++                    is_loadable = item.is_loadable if hasattr(item, 'is_loadable') else False
++                    if is_loadable and query_lower in item.name.lower():
++                        out.append(item)
++                    if item.is_folder and depth < 4:
++                        _collect_matches(item.children, query_lower, out, depth=depth+1)
++                except Exception:
++                    pass
++
++        def _find_item_containing(root_items, query_lower, depth=0):
++            """Best loadable match: exact name first, then shortest name.
++
++            Taking the first substring hit loads the wrong thing whenever a plugin
++            name contains a native device name -- asking for "Compressor" used to
++            load the AU "AUMultibandCompressor". Preferring an exact match, and
++            otherwise the shortest name, picks the plain device.
++            """
++            matches = []
++            _collect_matches(root_items, query_lower, matches, depth)
++            if not matches:
++                return None
++            for item in matches:
++                if item.name.lower() == query_lower:
++                    return item
++            return min(matches, key=lambda item: len(item.name))
++
++        # ── /live/browser/scan ─────────────────────────────────────────────
++        def handle_browser_scan(params):
++            import Live
++            query = str(params[0]).lower() if params else ""
++            app = Live.Application.get_application()
++            browser = app.browser
++            results = []
++            cats = [browser.instruments, browser.plugins, browser.audio_effects,
++                    browser.midi_effects, browser.sounds, browser.drums,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
++            for cat in cats:
++                if cat is None:
++                    continue
++                try:
++                    _search_browser(cat.children, query, results, max_results=40)
++                except Exception:
++                    pass
++            if results:
++                flat = []
++                for (name, uri, is_folder, is_loadable) in results:
++                    flat += [name, uri, int(is_folder), int(is_loadable)]
++                self.osc_server.send("/live/browser/scan", tuple(flat))
++            else:
++                self.osc_server.send("/live/browser/scan", ("__empty__",))
++
++        self.osc_server.add_handler("/live/browser/scan", handle_browser_scan)
++
++        # ── /live/browser/get/children ──────────────────────────────────────
++        def handle_browser_children(params):
++            import Live
++            category_uri = str(params[0]) if params else ""
++            app = Live.Application.get_application()
++            browser = app.browser
++            results = []
++            cats = [browser.instruments, browser.plugins, browser.audio_effects,
++                    browser.midi_effects, browser.sounds, browser.drums,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
++            for cat in cats:
++                if cat is None:
++                    continue
++                try:
++                    _search_browser(cat.children, "", results, max_results=80)
++                except Exception:
++                    pass
++            if results:
++                flat = []
++                for (name, uri, is_folder, is_loadable) in results:
++                    flat += [name, uri, int(is_folder), int(is_loadable)]
++                self.osc_server.send("/live/browser/get/children", tuple(flat))
++            else:
++                self.osc_server.send("/live/browser/get/children", ("__empty__",))
++
++        self.osc_server.add_handler("/live/browser/get/children", handle_browser_children)
++
++        # ── /live/browser/load ──────────────────────────────────────────────
++        def handle_browser_load(params):
++            import Live
++            uri_or_name = str(params[0]) if params else ""
++            app = Live.Application.get_application()
++            browser = app.browser
++            cats = [browser.instruments, browser.plugins, browser.audio_effects,
++                    browser.midi_effects, browser.sounds, browser.drums,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
++            for cat in cats:
++                if cat is None:
++                    continue
++                try:
++                    item = _find_item_containing(cat.children, uri_or_name.lower())
++                    if item is not None:
++                        browser.load_item(item)
++                        self.logger.info("browser/load: loaded '%s'" % item.name)
++                        return
++                except Exception:
++                    pass
++            self.logger.warning("browser/load: item not found for '%s'" % uri_or_name)
++
++        self.osc_server.add_handler("/live/browser/load", handle_browser_load)
++
++        # ── /live/track/load_device ─────────────────────────────────────────
++        def track_load_device(track, params: Tuple[Any]):
++            import Live
++            device_name = str(params[0]).lower()
++            app = Live.Application.get_application()
++            browser = app.browser
++            self.song.view.selected_track = track
++            # nativos primero: pedir "Compressor" debe dar el de Live, no un AU
++            cats = [browser.instruments, browser.audio_effects, browser.midi_effects,
++                    browser.user_library if hasattr(browser, 'user_library') else None,
++                    browser.plugins]
++            for cat in cats:
++                if cat is None:
++                    continue
++                try:
++                    item = _find_item_containing(cat.children, device_name)
++                    if item is not None:
++                        browser.load_item(item)
++                        self.logger.info("load_device: loaded '%s' on '%s'" % (item.name, track.name))
++                        return
++                except Exception:
++                    pass
++            self.logger.warning("load_device: '%s' not found" % device_name)
++
++        self.osc_server.add_handler("/live/track/load_device", create_track_callback(track_load_device))
++
++        #--------------------------------------------------------------------------------
++        # Track: delete a device by index. The Live API has delete_device on the track;
++        # AbletonOSC exposed delete_clip and delete_track but never this one, which left
++        # a wrongly loaded device impossible to remove without touching the mouse.
++        #--------------------------------------------------------------------------------
++        def track_delete_device(track, params: Tuple[Any]):
++            device_index = int(params[0])
++            if not 0 <= device_index < len(track.devices):
++                self.logger.warning("delete_device: index %d out of range on '%s'"
++                                    % (device_index, track.name))
++                return
++            name = track.devices[device_index].name
++            track.delete_device(device_index)
++            self.logger.info("delete_device: removed '%s' from '%s'" % (name, track.name))
++
++        self.osc_server.add_handler("/live/track/delete_device", create_track_callback(track_delete_device))
++
++        # ── /live/track/load_sample ─────────────────────────────────────────
++        def track_load_sample(track, params: Tuple[Any]):
++            import Live
++            import urllib.parse
++            file_uri = str(params[0])
++            file_path = urllib.parse.unquote(file_uri[7:]) if file_uri.startswith("file://") else file_uri
++            app = Live.Application.get_application()
++            browser = app.browser
++            self.song.view.selected_track = track
++            filename = file_path.split("/")[-1].split("\\")[-1]
++            stem = filename.lower().rsplit(".", 1)[0]
++            # Search in user samples/sounds, plus any bookmarked "Places" folders
++            # (browser.user_folders) — third-party library folders (Maschine, Komplete,
++            # etc.) only show up there, never under sounds/drums/samples/user_library.
++            cats = [browser.sounds, browser.drums, browser.samples if hasattr(browser, 'samples') else None,
++                    browser.user_library if hasattr(browser, 'user_library') else None]
++            if hasattr(browser, 'user_folders'):
++                try:
++                    cats.extend(list(browser.user_folders))
++                except Exception:
++                    pass
++            for cat in cats:
++                if cat is None:
++                    continue
++                try:
++                    item = _find_item_containing(cat.children, stem)
++                    if item is not None:
++                        browser.load_item(item)
++                        self.logger.info("load_sample: loaded '%s' on '%s'" % (filename, track.name))
++                        return
++                except Exception:
++                    pass
++            # Not found in anything we can search. The old fallback here
++            # (browser.load_item("file://" + path)) could never work — load_item()
++            # requires a real BrowserItem object, not a string, and always raised
++            # "Python argument types ... did not match C++ signature". Instead of
++            # failing silently on that same bug again, log what the Browser actually
++            # exposes so the real category/attribute can be added here with evidence
++            # instead of another guess.
++            try:
++                attrs = [a for a in dir(browser) if not a.startswith("_")]
++                self.logger.warning(
++                    "load_sample: '%s' not found in sounds/drums/samples/user_library/user_folders. "
++                    "browser attrs: %s" % (filename, attrs))
++                for a in attrs:
++                    try:
++                        val = getattr(browser, a)
++                        if hasattr(val, "children"):
++                            self.logger.warning("load_sample: browser.%s looks folder-like (has .children)" % a)
++                        elif isinstance(val, (list, tuple)) and len(val) and hasattr(val[0], "children"):
++                            self.logger.warning(
++                                "load_sample: browser.%s is a collection of folder-like items (len=%d)" % (a, len(val)))
++                    except Exception:
++                        pass
++            except Exception as e:
++                self.logger.warning("load_sample: introspection failed: %s" % str(e))
++            self.logger.warning("load_sample: failed to load '%s' — not found in any Browser "
++                                 "category AbletonOSC can search" % filename)
++
++        self.osc_server.add_handler("/live/track/load_sample", create_track_callback(track_load_sample))
++
+         #--------------------------------------------------------------------------------
+         # Track: Output routing.
+         # An output route has a type (e.g. "Ext. Out") and a channel (e.g. "1/2").
