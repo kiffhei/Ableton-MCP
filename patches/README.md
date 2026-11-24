@@ -117,8 +117,22 @@ al armar los 13 loops de melodic techno (ver `AUDIT.md`, 2026-11-24).
 **Límite real, no supuesto:** **solo el Compressor nativo** tiene esa clase. El Glue
 Compressor y el Gate no, aunque su parámetro `S/C On` sí sea un `DeviceParameter`
 normal. Por eso cada handler comprueba `hasattr(device, "available_input_routing_types")`
-y devuelve `"unsupported"` en vez de reventar. Que el Gate la tenga en alguna versión
-está sin confirmar.
+y devuelve `"unsupported"` en vez de reventar.
+
+**Medido en Live 12.0 el 2026-11-24**, cargando cada dispositivo y consultando
+`available_input_routing_types`:
+
+| Dispositivo | ¿Expone el ruteo de sidechain? |
+|---|---|
+| Compressor (nativo) | **sí** — 10 fuentes |
+| Gate | no |
+| Glue Compressor | no |
+| Auto Filter | no |
+
+Es decir: **para montar un sidechain por OSC hay que usar el Compressor nativo.** Con
+cualquier otro, el "Audio From" sigue siendo un clic a mano. Esto responde la duda que
+`fadnavismehul/abletonian` dejó abierta en su issue #49 ("Whether Glue Compressor and
+Gate get the same class needs checking").
 
 **Cómo regenerarlo** desde la copia instalada:
 
