@@ -32,10 +32,10 @@ Preguntas necesarias para proyecto nuevo:
 
 ---
 
-## Herramientas disponibles (39 tools)
+## Herramientas disponibles (42 tools)
 
 Ver tabla completa en `README.md` — ahí sirve porque la leen los usuarios
-finales del MCP, que no ven el schema. El schema MCP ya expone las 39 tools
+finales del MCP, que no ven el schema. El schema MCP ya expone las 42 tools
 en tiempo de ejecución.
 
 ---

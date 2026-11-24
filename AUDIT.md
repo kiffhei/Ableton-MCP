@@ -363,3 +363,58 @@ de pitch/posición/duración/velocidad.
 confirmación de la tool o por la descripción del producto — y, en general, si durante una
 sesión se encuentra algo nuevo por adaptar o corregir (tool faltante, bug real, gap entre
 lo documentado y lo real), implementarlo directamente en vez de solo reportarlo.
+
+---
+
+## 2026-11-24 — Base de conocimiento rítmica, y el error que la originó
+
+### Qué se añadió
+
+`knowledge/kick_bass_melodic_techno.json` + la tool `get_rhythm_pattern(genre, bpm)`
+(`src/rhythm_tools.py`, 17 pruebas en `tests/test_rhythm_patterns.py`). 13 patrones de
+bajo de melodic techno a 125 BPM, con su raíz medida y su procedencia.
+
+### De dónde salen los datos
+
+De la **rejilla MIDI mostrada en pantalla** en un anuncio del pack Arytmo "Melodic
+Techno Kick & Bass" (grabación de 50.7 s), leída píxel a píxel: geometría de la
+rejilla medida sobre el propio cuadro (114 px el compás 1, 615.5 el compás 2, 31.34 px
+por 16avo) y alturas ancladas en la etiqueta "C" del teclado.
+
+### El error que esto corrige, y por qué importa más que los datos
+
+El análisis previo (`kick_bass_patterns.json`, 2026-11-22) tenía dos defectos que
+conviene no repetir:
+
+1. **Truncamiento silencioso.** El script imprimía `pb[:60]`: detectaba todos los
+   onsets de los 50 s y guardaba `bass_t.npy` completo, pero solo los primeros 60
+   llegaban al JSON. De ahí que documentara 4 compases de 26.
+2. **Fuga de banda.** Filtraba `kick = band(x, 40, 120)` y `bass = band(x, 40, 250)`.
+   La segunda contiene por completo a la primera, así que **cada golpe de kick se
+   registró también como golpe de bajo**. En 3 de los 4 compases el patrón de kick
+   resultaba ser un subconjunto completo del de "bajo".
+
+La regla práctica: **en este registro no se puede separar kick de bajo por banda.** Las
+raíces de los 13 loops caen entre 37 y 52 Hz, dentro de cualquier banda que capture el
+kick. Quien lo intente otra vez obtendrá bajos que doblan el kick. Para separarlos hay
+que ir a los armónicos del bajo (2º y 3º, por encima de 90 Hz) o a separación de fuentes.
+
+Comprobación que lo delata en un vistazo: **ninguno de los 13 patrones reales toca en
+los pasos 0, 4, 8 ni 12.** El bajo del JSON viejo sí lo hacía, en tres de cuatro
+compases. Hay una prueba que lo fija (`test_el_bajo_nunca_pisa_un_tiempo_fuerte`).
+
+### Límites de lo medido, declarados
+
+- **Duraciones:** todas las notas son de un 16avo (bloques de 23-27 px sobre rejilla de
+  31.34). Tampoco hay acentos por velocity: la desviación de color entre bloques es ~1
+  de 255. Lo que se oye como notas más largas viene del envelope del instrumento.
+- **Tonalidades:** el anuncio rotula una letra sin alteración. En 7 de 13 no coincide
+  con la raíz leída, y las 7 discrepancias caen en teclas negras. Se conservan ambos
+  datos; manda la medición.
+- **Kick por loop:** no se extrajo. El piano roll del anuncio nunca lo muestra, y
+  sacarlo del audio vuelve a chocar con la fuga de banda de arriba. Solo consta el 4 en
+  el piso.
+- **Cotejo con audio:** no concluyó (4-3 en una prueba A/B dirigida entre la raíz leída
+  y la etiqueta del anuncio). La lectura visual se tomó como autoridad por tener error
+  máximo de 1 px sobre 38.5 px por semitono, y por coincidir 13/13 entre dos métodos
+  visuales independientes.

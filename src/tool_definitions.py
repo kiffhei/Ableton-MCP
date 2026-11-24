@@ -863,4 +863,27 @@ TOOL_DEFINITIONS: list[types.Tool] = [
             "required": ["task_description"],
         },
     ),
+    types.Tool(
+        name="get_rhythm_pattern",
+        description=(
+            "Devuelve los patrones de kick y bajo MEDIDOS de un género, con su "
+            "procedencia y sus límites. No son plantillas inventadas: solo existen "
+            "los géneros que se han analizado. Hoy: melodic techno (13 loops a 125 BPM, "
+            "leídos de la rejilla MIDI de un anuncio del pack Arytmo)."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "genre": {
+                    "type": "string",
+                    "description": "Género. Disponible: melodic techno. Acepta guiones y guiones bajos.",
+                },
+                "bpm": {
+                    "type": "integer",
+                    "description": "Tempo previsto. Si no coincide con el medido, se avisa.",
+                },
+            },
+            "required": ["genre"],
+        },
+    ),
 ]
