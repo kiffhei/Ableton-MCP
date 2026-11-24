@@ -152,9 +152,14 @@ diff -u "$OSC/device.py.orig" "$OSC/device.py" > patches/abletonosc-device-sidec
 
 Los cambios **no** se cargan solos, y AbletonOSC no expone ninguna recarga por OSC.
 
-> **No reinicies Live si tienes trabajo sin guardar.** En
-> *Preferences → Link/Tempo/MIDI*, pon el Control Surface de AbletonOSC en `None` y
-> vuelve a elegir `AbletonOSC`. Eso recarga el script conservando la sesión.
+> **Alternar el Control Surface NO basta.** Probado el 2026-11-24: poner AbletonOSC en
+> `None` y volver a elegirlo sí reinicia el servidor —el log registra `Disconnecting...`
+> seguido de `Started AbletonOSC`— pero los handlers nuevos siguen devolviendo
+> `Unknown OSC address`. Python conserva los módulos ya importados en `sys.modules`, así
+> que se re-instancia la clase con el código viejo en memoria.
+>
+> **Hay que reiniciar Live.** Guarda el Set primero: AbletonOSC tampoco expone un
+> handler de guardado, así que eso es Cmd+S a mano.
 
 Para comprobar que cargó, un handler nuevo debe dejar de responder `None`:
 
