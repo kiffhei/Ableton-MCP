@@ -1,0 +1,64 @@
+--- a/abletonosc/device.py	2026-11-24 15:22:20.000000000 -0600
++++ b/abletonosc/device.py	2026-11-24 15:22:20.000000000 -0600
+@@ -140,3 +140,61 @@
+         self.osc_server.add_handler("/live/device/get/parameter/name", create_device_callback(device_get_parameter_name))
+         self.osc_server.add_handler("/live/device/start_listen/parameter/value", create_device_callback(device_get_parameter_value_listener, include_ids = True))
+         self.osc_server.add_handler("/live/device/stop_listen/parameter/value", create_device_callback(device_get_parameter_remove_value_listener, include_ids = True))
++
++        #--------------------------------------------------------------------------------
++        # Device: Sidechain (audio input) routing.
++        # Only Live.CompressorDevice exposes this (Live 11+); it mirrors the Track
++        # routing API. Glue Compressor and Gate do NOT have it, so every handler here
++        # reports plainly when the device lacks the attribute instead of raising.
++        #--------------------------------------------------------------------------------
++        def _has_routing(device):
++            return hasattr(device, "available_input_routing_types")
++
++        def device_get_available_input_routing_types(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return tuple(t.display_name for t in device.available_input_routing_types)
++
++        def device_get_available_input_routing_channels(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return tuple(c.display_name for c in device.available_input_routing_channels)
++
++        def device_get_input_routing_type(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return (device.input_routing_type.display_name,)
++
++        def device_set_input_routing_type(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                self.logger.warning("device sidechain: %s has no input routing" % device.name)
++                return
++            wanted = str(params[0])
++            for routing_type in device.available_input_routing_types:
++                if routing_type.display_name == wanted:
++                    device.input_routing_type = routing_type
++                    return
++            self.logger.warning("Couldn't find device input routing type: %s" % wanted)
++
++        def device_get_input_routing_channel(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                return ("unsupported",)
++            return (device.input_routing_channel.display_name,)
++
++        def device_set_input_routing_channel(device, params: Tuple[Any] = ()):
++            if not _has_routing(device):
++                self.logger.warning("device sidechain: %s has no input routing" % device.name)
++                return
++            wanted = str(params[0])
++            for channel in device.available_input_routing_channels:
++                if channel.display_name == wanted:
++                    device.input_routing_channel = channel
++                    return
++            self.logger.warning("Couldn't find device input routing channel: %s" % wanted)
++
++        self.osc_server.add_handler("/live/device/get/available_input_routing_types", create_device_callback(device_get_available_input_routing_types))
++        self.osc_server.add_handler("/live/device/get/available_input_routing_channels", create_device_callback(device_get_available_input_routing_channels))
++        self.osc_server.add_handler("/live/device/get/input_routing_type", create_device_callback(device_get_input_routing_type))
++        self.osc_server.add_handler("/live/device/set/input_routing_type", create_device_callback(device_set_input_routing_type))
++        self.osc_server.add_handler("/live/device/get/input_routing_channel", create_device_callback(device_get_input_routing_channel))
++        self.osc_server.add_handler("/live/device/set/input_routing_channel", create_device_callback(device_set_input_routing_channel))

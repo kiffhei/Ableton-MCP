@@ -1,0 +1,86 @@
+--- a/abletonosc/track.py	2026-11-24 15:22:20.000000000 -0600
++++ b/abletonosc/track.py	2026-11-24 15:22:45.000000000 -0600
+@@ -200,22 +200,36 @@
+                     pass
+             return None
+ 
+-        def _find_item_containing(root_items, query_lower, depth=0):
+-            """Partial name match, returns first loadable match."""
++        def _collect_matches(root_items, query_lower, out, depth=0):
++            """Every loadable item whose name contains the query."""
+             if depth > 4:
+-                return None
++                return
+             for item in root_items:
+                 try:
+                     is_loadable = item.is_loadable if hasattr(item, 'is_loadable') else False
+-                    if query_lower in item.name.lower() and is_loadable:
+-                        return item
++                    if is_loadable and query_lower in item.name.lower():
++                        out.append(item)
+                     if item.is_folder and depth < 4:
+-                        found = _find_item_containing(item.children, query_lower, depth=depth+1)
+-                        if found is not None:
+-                            return found
++                        _collect_matches(item.children, query_lower, out, depth=depth+1)
+                 except Exception:
+                     pass
+-            return None
++
++        def _find_item_containing(root_items, query_lower, depth=0):
++            """Best loadable match: exact name first, then shortest name.
++
++            Taking the first substring hit loads the wrong thing whenever a plugin
++            name contains a native device name -- asking for "Compressor" used to
++            load the AU "AUMultibandCompressor". Preferring an exact match, and
++            otherwise the shortest name, picks the plain device.
++            """
++            matches = []
++            _collect_matches(root_items, query_lower, matches, depth)
++            if not matches:
++                return None
++            for item in matches:
++                if item.name.lower() == query_lower:
++                    return item
++            return min(matches, key=lambda item: len(item.name))
+ 
+         # ── /live/browser/scan ─────────────────────────────────────────────
+         def handle_browser_scan(params):
+@@ -302,9 +316,10 @@
+             app = Live.Application.get_application()
+             browser = app.browser
+             self.song.view.selected_track = track
+-            cats = [browser.instruments, browser.plugins, browser.audio_effects,
+-                    browser.midi_effects,
+-                    browser.user_library if hasattr(browser, 'user_library') else None]
++            # nativos primero: pedir "Compressor" debe dar el de Live, no un AU
++            cats = [browser.instruments, browser.audio_effects, browser.midi_effects,
++                    browser.user_library if hasattr(browser, 'user_library') else None,
++                    browser.plugins]
+             for cat in cats:
+                 if cat is None:
+                     continue
+@@ -320,6 +335,23 @@
+ 
+         self.osc_server.add_handler("/live/track/load_device", create_track_callback(track_load_device))
+ 
++        #--------------------------------------------------------------------------------
++        # Track: delete a device by index. The Live API has delete_device on the track;
++        # AbletonOSC exposed delete_clip and delete_track but never this one, which left
++        # a wrongly loaded device impossible to remove without touching the mouse.
++        #--------------------------------------------------------------------------------
++        def track_delete_device(track, params: Tuple[Any]):
++            device_index = int(params[0])
++            if not 0 <= device_index < len(track.devices):
++                self.logger.warning("delete_device: index %d out of range on '%s'"
++                                    % (device_index, track.name))
++                return
++            name = track.devices[device_index].name
++            track.delete_device(device_index)
++            self.logger.info("delete_device: removed '%s' from '%s'" % (name, track.name))
++
++        self.osc_server.add_handler("/live/track/delete_device", create_track_callback(track_delete_device))
++
+         # ── /live/track/load_sample ─────────────────────────────────────────
+         def track_load_sample(track, params: Tuple[Any]):
+             import Live

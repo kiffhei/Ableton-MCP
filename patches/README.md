@@ -93,3 +93,72 @@ patch -p1 < ~/proyectos/ableton-mcp/patches/abletonosc-load-sample-fix.patch
 ```
 
 Reiniciar Ableton Live después.
+
+## abletonosc-device-sidechain-routing.patch
+
+**Qué agrega:** seis handlers sobre `abletonosc/device.py` para el ruteo de sidechain
+(entrada de audio) de un dispositivo:
+
+```
+/live/device/get/available_input_routing_types     /live/device/get/input_routing_type
+/live/device/get/available_input_routing_channels  /live/device/set/input_routing_type
+                                                   /live/device/get/input_routing_channel
+                                                   /live/device/set/input_routing_channel
+```
+
+**Por qué:** la API de Live expone `Live.CompressorDevice.CompressorDevice` con
+`available_input_routing_types`, `available_input_routing_channels`,
+`input_routing_type` e `input_routing_channel` desde Live 11, espejando la API de
+routing de pistas — pero AbletonOSC nunca los expuso, ni la copia local ni upstream
+(verificado contra `ideoforms/AbletonOSC` el 2026-11-24). Sin esto, montar un sidechain
+obliga a abrir el dispositivo y elegir "Audio From" a mano, que es justo lo que se topó
+al armar los 13 loops de melodic techno (ver `AUDIT.md`, 2026-11-24).
+
+**Límite real, no supuesto:** **solo el Compressor nativo** tiene esa clase. El Glue
+Compressor y el Gate no, aunque su parámetro `S/C On` sí sea un `DeviceParameter`
+normal. Por eso cada handler comprueba `hasattr(device, "available_input_routing_types")`
+y devuelve `"unsupported"` en vez de reventar. Que el Gate la tenga en alguna versión
+está sin confirmar.
+
+**Cómo regenerarlo** desde la copia instalada:
+
+```bash
+OSC="$HOME/Music/Ableton/User Library/Remote Scripts/AbletonOSC/abletonosc"
+diff -u "$OSC/device.py.orig" "$OSC/device.py" > patches/abletonosc-device-sidechain-routing.patch
+```
+
+## abletonosc-delete-device-and-browser-order.patch
+
+**Qué agrega:** dos cosas sobre `abletonosc/track.py`.
+
+1. **`/live/track/delete_device`** — `track.delete_device(index)` existe en la API de
+   Live, y AbletonOSC exponía `delete_clip` y `delete_track` pero no este. Sin él, un
+   dispositivo cargado por error no se puede quitar sin ratón; lo único posible era
+   dejarlo en bypass. Valida el índice contra `len(track.devices)` antes de borrar.
+
+2. **Orden y criterio de búsqueda de `load_device`.** El buscador devolvía el *primer*
+   item cuyo nombre *contuviera* la consulta, recorriendo `browser.plugins` **antes**
+   que `browser.audio_effects`. Pedir `"Compressor"` cargaba el Audio Unit
+   `AUMultibandCompressor` en vez del Compressor de Live. El parche hace dos cambios:
+   los nativos se recorren primero, y entre todas las coincidencias gana el **nombre
+   exacto**; si no hay, el **más corto**. Ambos criterios eligen el dispositivo simple
+   frente al plugin de nombre largo que lo contiene.
+
+**Cómo regenerarlo:** igual que el anterior, con `track.py`.
+
+---
+
+## Recargar el Remote Script después de aplicar un parche
+
+Los cambios **no** se cargan solos, y AbletonOSC no expone ninguna recarga por OSC.
+
+> **No reinicies Live si tienes trabajo sin guardar.** En
+> *Preferences → Link/Tempo/MIDI*, pon el Control Surface de AbletonOSC en `None` y
+> vuelve a elegir `AbletonOSC`. Eso recarga el script conservando la sesión.
+
+Para comprobar que cargó, un handler nuevo debe dejar de responder `None`:
+
+```bash
+# devuelve "unsupported" en un device sin sidechain, un nombre de pista si lo tiene
+/live/device/get/input_routing_type <track> <device>
+```
