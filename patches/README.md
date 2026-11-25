@@ -210,3 +210,45 @@ cd "$REF" && git checkout -- abletonosc/
 for m in device track; do diff -u "$REF/abletonosc/$m.py" "$OSC/$m.py"; done \
   > ~/proyectos/ableton-mcp/patches/abletonosc-ableton-mcp-completo.patch
 ```
+
+## abletonosc-clip-envelopes-y-arreglo.patch
+
+**Qué agrega:** cinco handlers que rompen el techo que tenía el MCP — no podía
+automatizar nada ni sacar un clip de la vista de sesión.
+
+Envolventes de clip (`abletonosc/clip.py`):
+
+```
+/live/clip/set/envelope          <track> <escena> <track_device> <device> <param> [tiempo dur valor]*N
+/live/clip/get/envelope_value    <track> <escena> <track_device> <device> <param> <tiempo>
+/live/clip/clear/envelope        <track> <escena> <track_device> <device> <param>
+```
+
+Arreglo (`abletonosc/track.py`):
+
+```
+/live/track/duplicate_clip_to_arrangement   <track> <escena> <tiempo_en_pulsos>
+/live/track/delete_arrangement_clip         <track> <indice>
+```
+
+**Por qué.** `Clip.automation_envelope(parameter)` y `create_automation_envelope`
+existen en la API de Live desde hace versiones, y `Track.duplicate_clip_to_arrangement`
+también, pero AbletonOSC no exponía ninguno: de arreglo solo tenía **lectura**
+(nombres, longitudes y tiempos de inicio de los clips ya colocados). Sin esto, todo lo
+que construye el MCP se queda en la rejilla de sesión y sin una sola automatización.
+
+**Tres decisiones de diseño, y su razón:**
+
+1. **Una sola llamada escribe la envolvente entera.** Los `[tiempo, duración, valor]`
+   van en el mismo mensaje. Un barrido de filtro sobre 8 compases a resolución de
+   16avo son 128 puntos: mandarlos como 128 viajes de ida y vuelta es inusable, y cada
+   viaje es otra oportunidad de pillar a Live ocupado.
+
+2. **El dispositivo se direcciona por su propia pista.** Así un clip puede automatizar
+   un parámetro de otra pista, no solo de la suya.
+
+3. **Devuelven `"unsupported"` en vez de reventar.** Las envolventes son cosa de clips
+   de **sesión**: un clip de arrangement devuelve `None`. Quien llama necesita poder
+   distinguir "aquí no aplica" de "falló".
+
+**Cómo regenerarlo:** igual que los demás, con `clip.py` y `track.py`.

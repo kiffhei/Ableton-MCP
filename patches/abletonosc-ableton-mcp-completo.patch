@@ -1,4 +1,4 @@
---- a/abletonosc/device.py	2026-11-24 15:26:10.000000000 -0600
+--- a/abletonosc/device.py	2026-11-24 15:27:30.000000000 -0600
 +++ b/abletonosc/device.py	2026-11-24 15:22:20.000000000 -0600
 @@ -140,3 +140,61 @@
          self.osc_server.add_handler("/live/device/get/parameter/name", create_device_callback(device_get_parameter_name))
@@ -62,9 +62,9 @@
 +        self.osc_server.add_handler("/live/device/set/input_routing_type", create_device_callback(device_set_input_routing_type))
 +        self.osc_server.add_handler("/live/device/get/input_routing_channel", create_device_callback(device_get_input_routing_channel))
 +        self.osc_server.add_handler("/live/device/set/input_routing_channel", create_device_callback(device_set_input_routing_channel))
---- a/abletonosc/track.py	2026-11-24 15:26:10.000000000 -0600
-+++ b/abletonosc/track.py	2026-11-24 15:22:45.000000000 -0600
-@@ -162,6 +162,257 @@
+--- a/abletonosc/track.py	2026-11-24 15:27:30.000000000 -0600
++++ b/abletonosc/track.py	2026-11-25 10:37:02.000000000 -0600
+@@ -162,6 +162,299 @@
          self.osc_server.add_handler("/live/track/get/devices/class_name", create_track_callback(track_get_device_class_names))
          self.osc_server.add_handler("/live/track/get/devices/can_have_chains", create_track_callback(track_get_device_can_have_chains))
  
@@ -258,6 +258,48 @@
 +
 +        self.osc_server.add_handler("/live/track/delete_device", create_track_callback(track_delete_device))
 +
++        #--------------------------------------------------------------------------------
++        # Track: move a session clip into the Arrangement.
++        #
++        # AbletonOSC could READ arrangement clips (names, lengths, start times) but had no
++        # way to PUT one there, so a set built by OSC could never leave the session grid.
++        # Live's API has Track.duplicate_clip_to_arrangement(clip, time); this exposes it.
++        # Times are in beats from the start of the song.
++        #--------------------------------------------------------------------------------
++        def track_duplicate_clip_to_arrangement(track, params: Tuple[Any]):
++            scene_index, destination = int(params[0]), float(params[1])
++            if not hasattr(track, "duplicate_clip_to_arrangement"):
++                self.logger.warning("duplicate_clip_to_arrangement: not available in this Live version")
++                return ("unsupported",)
++            try:
++                clip = track.clip_slots[scene_index].clip
++            except IndexError:
++                return ("error", "no such scene")
++            if clip is None:
++                return ("error", "empty clip slot")
++            try:
++                track.duplicate_clip_to_arrangement(clip, destination)
++            except Exception as e:
++                self.logger.warning("duplicate_clip_to_arrangement failed: %s" % e)
++                return ("error", str(e))
++            return (len(track.arrangement_clips),)
++
++        def track_delete_arrangement_clip(track, params: Tuple[Any]):
++            index = int(params[0])
++            clips = list(track.arrangement_clips)
++            if not 0 <= index < len(clips):
++                return ("error", "index out of range")
++            try:
++                track.delete_clip(clips[index])
++            except Exception as e:
++                return ("error", str(e))
++            return (len(track.arrangement_clips),)
++
++        self.osc_server.add_handler("/live/track/duplicate_clip_to_arrangement",
++                                    create_track_callback(track_duplicate_clip_to_arrangement))
++        self.osc_server.add_handler("/live/track/delete_arrangement_clip",
++                                    create_track_callback(track_delete_arrangement_clip))
++
 +        # ── /live/track/load_sample ─────────────────────────────────────────
 +        def track_load_sample(track, params: Tuple[Any]):
 +            import Live
@@ -322,3 +364,89 @@
          #--------------------------------------------------------------------------------
          # Track: Output routing.
          # An output route has a type (e.g. "Ext. Out") and a channel (e.g. "1/2").
+--- a/abletonosc/clip.py	2026-11-24 15:26:10.000000000 -0600
++++ b/abletonosc/clip.py	2026-11-25 10:37:02.000000000 -0600
+@@ -218,3 +218,83 @@
+                         clip_notes_list = clip_notes_str.split("-")
+                         clip_notes_list = [note_name_to_midi(name) for name in clip_notes_list]
+                         self._clip_notes_cache[-1][-1] = clip_notes_list
++
++        #--------------------------------------------------------------------------------
++        # Clip: automation envelopes.
++        #
++        # Live exposes Clip.automation_envelope(parameter) and
++        # create_automation_envelope(parameter) on SESSION clips only; an arrangement clip
++        # returns None. Every handler here reports that plainly instead of throwing, so the
++        # caller can tell "not supported here" from "it failed".
++        #
++        # A whole sweep goes in ONE message. Writing 128 breakpoints as 128 OSC round trips
++        # is slow enough to be unusable, and every round trip is another chance to catch
++        # Live busy.
++        #
++        # Args after the clip's own (track, scene): the device is addressed explicitly by
++        # its own track, so a clip can automate a parameter on any track, not just its own.
++        #   set:   <track> <scene> <device_track> <device> <param> [time dur value]*N
++        #   get:   <track> <scene> <device_track> <device> <param> <time>
++        #   clear: <track> <scene> <device_track> <device> <param>
++        #--------------------------------------------------------------------------------
++        def _envelope_for(clip, params, create=False):
++            try:
++                device_track, device_index, parameter_index = (
++                    int(params[2]), int(params[3]), int(params[4]))
++            except (IndexError, ValueError, TypeError):
++                return None, "expected device_track, device, parameter"
++            try:
++                parameter = self.song.tracks[device_track].devices[device_index].parameters[parameter_index]
++            except (IndexError, AttributeError):
++                return None, "no such device or parameter"
++            envelope = clip.automation_envelope(parameter)
++            if envelope is None and create:
++                try:
++                    envelope = clip.create_automation_envelope(parameter)
++                except Exception as e:
++                    return None, "cannot create envelope: %s" % e
++            if envelope is None:
++                return None, "no envelope (arrangement clips cannot have one)"
++            return envelope, None
++
++        def clip_get_envelope_value(clip, params: Tuple[Any]):
++            envelope, problem = _envelope_for(clip, params)
++            if envelope is None:
++                return ("unsupported", problem)
++            try:
++                time = float(params[5])
++            except (IndexError, ValueError):
++                return ("error", "expected a time in beats")
++            return (envelope.value_at_time(time),)
++
++        def clip_set_envelope(clip, params: Tuple[Any]):
++            steps = params[5:]
++            if not steps or len(steps) % 3 != 0:
++                return ("error", "expected triples of time, duration, value")
++            envelope, problem = _envelope_for(clip, params, create=True)
++            if envelope is None:
++                return ("unsupported", problem)
++            written = 0
++            for index in range(0, len(steps), 3):
++                try:
++                    envelope.insert_step(float(steps[index]), float(steps[index + 1]),
++                                         float(steps[index + 2]))
++                    written += 1
++                except Exception as e:
++                    self.logger.warning("clip envelope: insert_step failed: %s" % e)
++                    return ("error", str(e), written)
++            return (written,)
++
++        def clip_clear_envelope(clip, params: Tuple[Any]):
++            envelope, problem = _envelope_for(clip, params)
++            if envelope is None:
++                return ("unsupported", problem)
++            envelope.clear()
++            return ("cleared",)
++
++        self.osc_server.add_handler("/live/clip/get/envelope_value",
++                                    create_clip_callback(clip_get_envelope_value, pass_clip_index=True))
++        self.osc_server.add_handler("/live/clip/set/envelope",
++                                    create_clip_callback(clip_set_envelope, pass_clip_index=True))
++        self.osc_server.add_handler("/live/clip/clear/envelope",
++                                    create_clip_callback(clip_clear_envelope, pass_clip_index=True))
