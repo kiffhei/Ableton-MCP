@@ -20,6 +20,7 @@ from project_tools import HANDLERS as PROJECT_HANDLERS
 from registry_tools import HANDLERS as REGISTRY_HANDLERS
 from free_tools_handlers import HANDLERS as FREE_TOOLS_HANDLERS
 from rhythm_tools import HANDLERS as RHYTHM_HANDLERS
+from harmony_handlers import HANDLERS as HARMONY_HANDLERS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ableton-mcp")
@@ -37,6 +38,7 @@ HANDLERS = {
     **REGISTRY_HANDLERS,
     **FREE_TOOLS_HANDLERS,
     **RHYTHM_HANDLERS,
+    **HARMONY_HANDLERS,
 }
 
 

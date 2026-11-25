@@ -886,4 +886,42 @@ TOOL_DEFINITIONS: list[types.Tool] = [
             "required": ["genre"],
         },
     ),
+    types.Tool(
+        name="get_key_compatibility",
+        description=(
+            "Dice con qué tonalidades se mezcla una dada y qué hace cada movimiento: "
+            "dominante (sube la energía), subdominante (la baja), relativa (mismas notas, "
+            "otro color) y homónima (misma raíz, otro modo). Incluye el código Camelot "
+            "y la escala. Úsala antes de encadenar loops o decidir a dónde modular."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "description": "Tonalidad: C, Am, F#m, Bb major, D# minor...",
+                },
+            },
+            "required": ["key"],
+        },
+    ),
+    types.Tool(
+        name="group_keys_by_compatibility",
+        description=(
+            "Agrupa una lista de tonalidades en familias que se mezclan entre sí, por "
+            "adyacencia en el círculo de quintas. Sirve para ordenar escenas o un set: "
+            "dentro de una familia se encadena sin choque; entre familias el salto se oye."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Lista de tonalidades, ej: [\"Am\", \"Dm\", \"F\", \"C#m\"]",
+                },
+            },
+            "required": ["keys"],
+        },
+    ),
 ]
